@@ -1,0 +1,225 @@
+"""
+Date: create on 09/11/2025
+Author:
+    Yang Zhou,zyaztec@gmail.com
+Reference:
+    [1] Li C, Liu Z, Wu M, et al. Multi-interest network with dynamic routing for recommendation at Tmall[C]
+        //Proceedings of the 28th ACM international conference on information and knowledge management. 2019: 2615-2623.
+"""
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from typing import Literal
+
+from reclib.basic.model import BaseMatchModel
+from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from reclib.basic.layers import MLP, EmbeddingLayer, CapsuleNetwork
+
+
+class MIND(BaseMatchModel):
+    """
+    Multi-Interest Network with Dynamic Routing
+    
+    使用胶囊网络提取用户的多个兴趣向量，支持多样化推荐
+    """
+    
+    @property
+    def model_name(self) -> str:
+        return "MIND"
+    
+    def __init__(self,
+                 user_dense_features: list[DenseFeature] | None = None,
+                 user_sparse_features: list[SparseFeature] | None = None,
+                 user_sequence_features: list[SequenceFeature] | None = None,
+                 item_dense_features: list[DenseFeature] | None = None,
+                 item_sparse_features: list[SparseFeature] | None = None,
+                 item_sequence_features: list[SequenceFeature] | None = None,
+                 embedding_dim: int = 64,
+                 num_interests: int = 4,
+                 capsule_bilinear_type: int = 2,
+                 routing_times: int = 3,
+                 relu_layer: bool = False,
+                 item_dnn_hidden_units: list[int] = [256, 128],
+                 dnn_activation: str = 'relu',
+                 dnn_dropout: float = 0.0,
+                 training_mode: Literal['pointwise', 'pairwise', 'listwise'] = 'listwise',
+                 num_negative_samples: int = 100,
+                 temperature: float = 1.0,
+                 similarity_metric: Literal['dot', 'cosine', 'euclidean'] = 'dot',
+                 device: str = 'cpu',
+                 embedding_l1_reg: float = 0.0,
+                 dense_l1_reg: float = 0.0,
+                 embedding_l2_reg: float = 0.0,
+                 dense_l2_reg: float = 0.0,
+                 early_stop_patience: int = 20,
+                 model_id: str = 'mind'):
+        
+        super(MIND, self).__init__(
+            user_dense_features=user_dense_features,
+            user_sparse_features=user_sparse_features,
+            user_sequence_features=user_sequence_features,
+            item_dense_features=item_dense_features,
+            item_sparse_features=item_sparse_features,
+            item_sequence_features=item_sequence_features,
+            training_mode=training_mode,
+            num_negative_samples=num_negative_samples,
+            temperature=temperature,
+            similarity_metric=similarity_metric,
+            device=device,
+            embedding_l1_reg=embedding_l1_reg,
+            dense_l1_reg=dense_l1_reg,
+            embedding_l2_reg=embedding_l2_reg,
+            dense_l2_reg=dense_l2_reg,
+            early_stop_patience=early_stop_patience,
+            model_id=model_id
+        )
+        
+        self.embedding_dim = embedding_dim
+        self.num_interests = num_interests
+        self.item_dnn_hidden_units = item_dnn_hidden_units
+        
+        # User tower - 包含序列特征
+        user_features = []
+        if user_dense_features:
+            user_features.extend(user_dense_features)
+        if user_sparse_features:
+            user_features.extend(user_sparse_features)
+        if user_sequence_features:
+            user_features.extend(user_sequence_features)
+        
+        if len(user_features) > 0:
+            self.user_embedding = EmbeddingLayer(user_features)
+            
+            # 需要有序列特征才能使用MIND
+            if not user_sequence_features or len(user_sequence_features) == 0:
+                raise ValueError("MIND requires at least one user sequence feature")
+            
+            # 假设序列特征已经通过embedding层处理
+            # 获取序列长度 (从第一个序列特征)
+            seq_max_len = user_sequence_features[0].max_len if user_sequence_features[0].max_len else 50
+            
+            # Capsule Network for multi-interest extraction
+            self.capsule_network = CapsuleNetwork(
+                embedding_dim=embedding_dim,
+                seq_len=seq_max_len,
+                bilinear_type=capsule_bilinear_type,
+                interest_num=num_interests,
+                routing_times=routing_times,
+                relu_layer=relu_layer
+            )
+        
+        # Item tower
+        item_features = []
+        if item_dense_features:
+            item_features.extend(item_dense_features)
+        if item_sparse_features:
+            item_features.extend(item_sparse_features)
+        if item_sequence_features:
+            item_features.extend(item_sequence_features)
+        
+        if len(item_features) > 0:
+            self.item_embedding = EmbeddingLayer(item_features)
+            
+            item_input_dim = 0
+            for feat in item_dense_features or []:
+                item_input_dim += 1
+            for feat in item_sparse_features or []:
+                item_input_dim += feat.embedding_dim
+            for feat in item_sequence_features or []:
+                item_input_dim += feat.embedding_dim
+            
+            # Item DNN
+            if len(item_dnn_hidden_units) > 0:
+                item_dnn_units = item_dnn_hidden_units + [embedding_dim]
+                self.item_dnn = MLP(
+                    input_dim=item_input_dim,
+                    dims=item_dnn_units,
+                    output_layer=False,
+                    dropout=dnn_dropout,
+                    activation=dnn_activation
+                )
+            else:
+                self.item_dnn = None
+        
+        self._register_regularization_weights(
+            embedding_attr='user_embedding',
+            include_modules=['capsule_network']
+        )
+        self._register_regularization_weights(
+            embedding_attr='item_embedding',
+            include_modules=['item_dnn'] if self.item_dnn else []
+        )
+        
+        self.to(device)
+    
+    def user_tower(self, user_input: dict) -> torch.Tensor:
+        """
+        User tower with multi-interest extraction
+        
+        Returns:
+            user_interests: [batch_size, num_interests, embedding_dim]
+        """
+        # 获取序列特征的embedding
+        # 这里简化处理，假设只有一个主要的序列特征(如历史点击序列)
+        seq_feature = self.user_sequence_features[0]
+        seq_input = user_input[seq_feature.name]
+        
+        # 获取序列embedding
+        embed = self.user_embedding.embed_dict[seq_feature.embedding_name]
+        seq_emb = embed(seq_input.long())  # [batch_size, seq_len, embedding_dim]
+        
+        # 创建mask
+        mask = (seq_input != seq_feature.padding_idx).float()  # [batch_size, seq_len]
+        
+        # 使用Capsule Network提取多兴趣
+        multi_interests = self.capsule_network(seq_emb, mask)  # [batch_size, num_interests, embedding_dim]
+        
+        # L2 normalization
+        multi_interests = F.normalize(multi_interests, p=2, dim=-1)
+        
+        return multi_interests
+    
+    def item_tower(self, item_input: dict) -> torch.Tensor:
+        """Item tower"""
+        all_item_features = self.item_dense_features + self.item_sparse_features + self.item_sequence_features
+        item_emb = self.item_embedding(item_input, all_item_features, squeeze_dim=True)
+        
+        if self.item_dnn is not None:
+            item_emb = self.item_dnn(item_emb)
+        
+        # L2 normalization
+        item_emb = F.normalize(item_emb, p=2, dim=1)
+        
+        return item_emb
+    
+    def compute_similarity(self, user_emb: torch.Tensor, item_emb: torch.Tensor) -> torch.Tensor:
+        """
+        计算多兴趣与item的相似度
+        
+        Args:
+            user_emb: [batch_size, num_interests, embedding_dim]
+            item_emb: [batch_size, embedding_dim]
+        
+        Returns:
+            similarity: [batch_size] 取最大兴趣的相似度
+        """
+        # 扩展item_emb: [batch_size, 1, embedding_dim]
+        item_emb_expanded = item_emb.unsqueeze(1)
+        
+        # 计算所有兴趣与item的相似度: [batch_size, num_interests]
+        if self.similarity_metric == 'dot':
+            similarities = torch.sum(user_emb * item_emb_expanded, dim=-1)
+        elif self.similarity_metric == 'cosine':
+            similarities = F.cosine_similarity(user_emb, item_emb_expanded, dim=-1)
+        elif self.similarity_metric == 'euclidean':
+            similarities = -torch.sum((user_emb - item_emb_expanded) ** 2, dim=-1)
+        else:
+            raise ValueError(f"Unknown similarity metric: {self.similarity_metric}")
+        
+        # 取最大相似度 (最匹配的兴趣)
+        max_similarity, _ = torch.max(similarities, dim=1)  # [batch_size]
+        
+        # 应用温度参数
+        max_similarity = max_similarity / self.temperature
+        
+        return max_similarity

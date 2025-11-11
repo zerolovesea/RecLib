@@ -1,0 +1,169 @@
+"""
+DSSM (Deep Structured Semantic Model) Example with GAUC metric
+Uses match_task.csv generated data
+"""
+
+import sys
+import torch
+import numpy as np
+import pandas as pd
+
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
+from sklearn.model_selection import train_test_split
+
+from reclib.models.match.dssm import DSSM
+from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
+
+
+# Load generated data
+df = pd.read_csv('../data/match_task.csv')
+
+# Parse sequence features from string to list
+for col in df.columns:
+    if 'sequence' in col:
+        df[col] = df[col].apply(lambda x: eval(x) if isinstance(x, str) else x)
+
+print(f"Dataset loaded: {len(df)} samples")
+print(f"Users: {df['user_id'].nunique()}")
+print(f"Items: {df['item_id'].nunique()}")
+print(f"Positive ratio: {df['label'].mean():.4f}")
+
+# Split data
+train_df, valid_df = train_test_split(df, test_size=0.2, random_state=2024)
+
+# User features
+user_dense_features = [
+    DenseFeature(f'user_dense_{i}') 
+    for i in range(3)
+]
+
+# User sparse features (including user_id)
+user_sparse_features = [
+    SparseFeature('user_id', vocab_size=int(df['user_id'].max() + 1), embedding_dim=32)
+]
+
+user_sparse_features.extend([
+    SparseFeature(
+        f'user_sparse_{i}',
+        vocab_size=int(df[f'user_sparse_{i}'].max() + 1),
+        embedding_dim=16
+    )
+    for i in range(5)
+])
+
+# User behavior sequence
+user_sequence_features = [
+    SequenceFeature(
+        'user_sequence_0',
+        vocab_size=int(df['user_sequence_0'].apply(lambda x: max(x)).max() + 1),
+        embedding_dim=32,
+        combiner='mean',
+        padding_idx=0
+    )
+]
+
+# Item features
+item_dense_features = [
+    DenseFeature(f'item_dense_{i}')
+    for i in range(2)
+]
+
+# Item sparse features (including item_id)
+item_sparse_features = [
+    SparseFeature('item_id', vocab_size=int(df['item_id'].max() + 1), embedding_dim=32)
+]
+
+item_sparse_features.extend([
+    SparseFeature(
+        f'item_sparse_{i}',
+        vocab_size=int(df[f'item_sparse_{i}'].max() + 1),
+        embedding_dim=16
+    )
+    for i in range(4)
+])
+
+print(f"\nUser features: {len(user_dense_features)} dense + {len(user_sparse_features)} sparse (including user_id) + {len(user_sequence_features)} sequence")
+print(f"Item features: {len(item_dense_features)} dense + {len(item_sparse_features)} sparse (including item_id)")
+
+print("\n" + "=" * 60)
+print("Build DSSM Model")
+print("=" * 60)
+
+model = DSSM(
+    user_dense_features=user_dense_features,
+    user_sparse_features=user_sparse_features,
+    user_sequence_features=user_sequence_features,
+    item_dense_features=item_dense_features,
+    item_sparse_features=item_sparse_features,
+    item_sequence_features=[],
+    user_dnn_hidden_units=[128, 64],
+    item_dnn_hidden_units=[128, 64],
+    embedding_dim=32,
+    dnn_activation='relu',
+    dnn_dropout=0.3,
+    training_mode='pointwise',
+    similarity_metric='cosine',
+    device='mps',
+    model_id='dssm_exp001',
+    embedding_l1_reg=1e-6,
+    embedding_l2_reg=1e-5,
+    dense_l1_reg=1e-5,
+    dense_l2_reg=1e-4,
+)
+
+print(f"Model: {model.model_name}")
+print(f"Training mode: pointwise")
+print(f"Similarity: cosine")
+
+# Compile model
+model.compile(
+    optimizer="adam",
+    optimizer_params={"lr": 1e-3, "weight_decay": 1e-5},
+    loss="bce"
+)
+
+print("\n" + "=" * 60)
+print("Start Training with GAUC metric")
+print("=" * 60)
+
+model.fit(
+    train_data=train_df,
+    valid_data=valid_df,
+    metrics=['auc', 'gauc', 'logloss'],  # Added GAUC metric
+    epochs=5,
+    batch_size=512,
+    shuffle=True,
+    verbose=1,
+    user_id_column='user_id'  # Specify user_id column for GAUC
+)
+
+print("\n" + "=" * 60)
+print("Training Complete!")
+print("=" * 60)
+
+# Predict
+print("\n" + "=" * 60)
+print("Model Prediction")
+print("=" * 60)
+
+predictions = model.predict(valid_df, batch_size=512)
+print(f"Prediction shape: {predictions.shape}")
+print(f"Prediction sample: {predictions[:10]}")
+
+# Evaluate
+from sklearn.metrics import roc_auc_score, log_loss
+from reclib.basic.metrics import compute_gauc
+
+auc = roc_auc_score(valid_df['label'].values, predictions)
+logloss = log_loss(valid_df['label'].values, predictions)
+gauc = compute_gauc(valid_df['label'].values, predictions, valid_df['user_id'].values)
+
+print(f"\nValid AUC: {auc:.6f}")
+print(f"Valid GAUC: {gauc:.6f}")
+print(f"Valid LogLoss: {logloss:.6f}")
+
+print("\n" + "=" * 60)
+print("DSSM Example Complete!")
+print("=" * 60)

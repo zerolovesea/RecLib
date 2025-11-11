@@ -1,0 +1,161 @@
+"""
+DIN (Deep Interest Network) Ranking Model Example with GAUC metric
+Uses ranking_task.csv generated data
+"""
+import sys
+import pandas as pd
+
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
+from reclib.models.ranking.din import DIN
+from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
+
+from sklearn.model_selection import train_test_split
+
+# Load generated data
+df = pd.read_csv('../data/ranking_task.csv')
+
+# Parse sequence features from string to list
+for col in df.columns:
+    if 'sequence' in col:
+        df[col] = df[col].apply(lambda x: eval(x) if isinstance(x, str) else x)
+
+print(f"Dataset loaded: {len(df)} samples")
+print(f"Users: {df['user_id'].nunique()}")
+print(f"Items: {df['item_id'].nunique()}")
+print(f"Positive ratio: {df['label'].mean():.4f}")
+
+print(f"\nData sample:")
+print(df.head(2))
+
+# Check sequence features
+print(f"\nSequence samples:")
+print(f"sequence_0[0]: {df['sequence_0'].iloc[0]}")
+print(f"  actual length: {len([x for x in df['sequence_0'].iloc[0] if x != 0])}")
+print(f"sequence_1[0]: {df['sequence_1'].iloc[0]}")
+print(f"  actual length: {len([x for x in df['sequence_1'].iloc[0] if x != 0])}")
+
+# Train/valid split
+train_df, valid_df = train_test_split(df, test_size=0.2, random_state=2024)
+
+# Dense features
+dense_features = [
+    DenseFeature(f'dense_{i}')
+    for i in range(8)
+]
+
+# Sparse features (including user_id and item_id)
+sparse_features = [
+    SparseFeature('user_id', vocab_size=int(df['user_id'].max() + 1), embedding_dim=32),
+    SparseFeature('item_id', vocab_size=int(df['item_id'].max() + 1), embedding_dim=32),
+]
+
+# Add other sparse features
+sparse_features.extend([
+    SparseFeature(
+        f'sparse_{i}',
+        vocab_size=int(df[f'sparse_{i}'].max() + 1),
+        embedding_dim=32
+    )
+    for i in range(10)
+])
+
+# Sequence features
+sequence_features = [
+    SequenceFeature(
+        'sequence_0',
+        vocab_size=int(df['sequence_0'].apply(lambda x: max(x)).max() + 1),
+        embedding_dim=32,
+        padding_idx=0,
+        embedding_name='item_emb'
+    ),
+    SequenceFeature(
+        'sequence_1',
+        vocab_size=int(df['sequence_1'].apply(lambda x: max(x)).max() + 1),
+        embedding_dim=16,
+        padding_idx=0
+    )
+]
+
+print(f"\nDense features: {len(dense_features)}")
+print(f"Sparse features: {len(sparse_features)} (including user_id and item_id)")
+print(f"Sequence features: {len(sequence_features)}")
+
+mlp_params = {
+    "dims": [256, 128, 64],
+    "activation": "relu",
+    "dropout": 0.3,
+}
+
+model = DIN(
+    dense_features=dense_features,
+    sparse_features=sparse_features,
+    sequence_features=sequence_features,
+    mlp_params=mlp_params,
+    attention_hidden_units=[80, 40],
+    attention_activation='sigmoid',
+    attention_use_softmax=True,
+    target=['label'],
+    optimizer="adam",
+    optimizer_params={"lr": 1e-3, "weight_decay": 1e-5},
+    loss="bce",
+    device='mps',
+    model_id="din_exp001",
+    embedding_l1_reg=1e-6,
+    embedding_l2_reg=1e-5,
+    dense_l1_reg=1e-5,
+    dense_l2_reg=1e-4,
+)
+
+print(f"\nModel: {model.model_name}")
+print(f"Attention: compute relevance between history and candidate item")
+print(f"MLP: {mlp_params['dims']}")
+
+print("\n" + "=" * 60)
+print("Start Training with GAUC metric")
+print("=" * 60)
+
+print(f"Train size: {len(train_df)}")
+print(f"Valid size: {len(valid_df)}")
+
+model.fit(
+    train_data=train_df,
+    valid_data=valid_df,
+    metrics=['auc', 'gauc', 'logloss'],  # Added GAUC metric
+    epochs=8,
+    batch_size=512,
+    shuffle=True,
+    verbose=1,
+    user_id_column='user_id'  # Specify user_id column for GAUC
+)
+
+print("\n" + "=" * 60)
+print("Training Complete!")
+print("=" * 60)
+
+# Predict
+print("\n" + "=" * 60)
+print("Model Prediction")
+print("=" * 60)
+
+predictions = model.predict(valid_df, batch_size=512)
+print(f"Prediction shape: {predictions.shape}")
+print(f"Prediction sample: {predictions[:10]}")
+print(f"Prediction range: [{predictions.min():.4f}, {predictions.max():.4f}]")
+
+# Evaluate
+from sklearn.metrics import roc_auc_score, log_loss
+from reclib.basic.metrics import compute_gauc
+
+auc = roc_auc_score(valid_df['label'].values, predictions)
+gauc = compute_gauc(valid_df['label'].values, predictions, valid_df['user_id'].values)
+logloss = log_loss(valid_df['label'].values, predictions)
+
+print(f"\nValid AUC: {auc:.6f}")
+print(f"Valid GAUC: {gauc:.6f}")
+print(f"Valid LogLoss: {logloss:.6f}")
+
+print("\n" + "=" * 60)
+print("DIN Example Complete!")
+print("=" * 60)

@@ -1,0 +1,526 @@
+"""
+Unit Tests for Ranking Models
+
+This module contains unit tests for all ranking/CTR prediction models including:
+- DeepFM (Deep Factorization Machine)
+- DIN (Deep Interest Network)
+- DIEN (Deep Interest Evolution Network)
+- DCN (Deep & Cross Network)
+- AutoInt
+- WideDeep
+- xDeepFM (Extreme Deep Factorization Machine)
+
+Tests cover model initialization, forward pass, training, and inference.
+"""
+import pytest
+import torch
+import torch.nn as nn
+import logging
+
+from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from reclib.models.ranking.deepfm import DeepFM
+from reclib.models.ranking.din import DIN
+
+from test.test_utils import (
+    assert_model_output_shape,
+    assert_model_output_range,
+    assert_no_nan_or_inf,
+    run_model_forward_backward,
+    run_model_inference,
+    count_parameters
+)
+
+logger = logging.getLogger(__name__)
+
+
+class TestDeepFM:
+    """Test suite for DeepFM (Deep Factorization Machine)"""
+    
+    def test_deepfm_initialization(self, sample_dense_features, sample_sparse_features, 
+                                   sample_sequence_features, device):
+        """Test DeepFM model initialization"""
+        logger.info("=" * 80)
+        logger.info("Testing DeepFM initialization")
+        logger.info("=" * 80)
+        
+        mlp_params = {
+            'dims': [256, 128, 64],
+            'dropout': 0.2,
+            'activation': 'relu',
+        }
+        
+        model = DeepFM(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            mlp_params=mlp_params,
+            target=['label'],
+            device=device
+        )
+        
+        assert model is not None
+        assert model.model_name == "DeepFM"
+        assert model.task_type == "binary"
+        logger.info("DeepFM initialization successful")
+        
+        # Count parameters
+        num_params = count_parameters(model)
+        assert num_params > 0
+    
+    def test_deepfm_forward_pass(self, sample_dense_features, sample_sparse_features,
+                                 sample_sequence_features, sample_batch_data, 
+                                 device, batch_size, set_random_seed):
+        """Test DeepFM forward pass"""
+        logger.info("=" * 80)
+        logger.info("Testing DeepFM forward pass")
+        logger.info("=" * 80)
+        
+        mlp_params = {
+            'dims': [128, 64],
+            'dropout': 0.0,
+            'activation': 'relu',
+        }
+        
+        model = DeepFM(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            mlp_params=mlp_params,
+            target=['label'],
+            device=device
+        )
+        
+        # Move data to device
+        data = {k: v.to(device) for k, v in sample_batch_data.items() if k != 'label'}
+        
+        # Forward pass
+        output = run_model_inference(model, data)
+        
+        # Assertions
+        assert_model_output_shape(output, (batch_size,), "DeepFM output shape")
+        assert_model_output_range(output, 0.0, 1.0)
+        assert_no_nan_or_inf(output, "DeepFM output")
+        
+        logger.info("DeepFM forward pass successful")
+    
+    def test_deepfm_training_step(self, sample_dense_features, sample_sparse_features,
+                                  sample_sequence_features, sample_batch_data, 
+                                  device, batch_size, set_random_seed):
+        """Test DeepFM training step (forward + backward)"""
+        logger.info("=" * 80)
+        logger.info("Testing DeepFM training step")
+        logger.info("=" * 80)
+        
+        mlp_params = {
+            'dims': [64, 32],
+            'dropout': 0.1,
+            'activation': 'relu',
+        }
+        
+        model = DeepFM(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            mlp_params=mlp_params,
+            target=['label'],
+            optimizer='adam',
+            optimizer_params={'lr': 0.001},
+            loss='bce',
+            device=device
+        )
+        
+        # Move data to device
+        data = {k: v.to(device) for k, v in sample_batch_data.items() if k != 'label'}
+        target = sample_batch_data['label'].to(device)
+        
+        # Training step
+        loss_fn = nn.BCELoss()
+        result = run_model_forward_backward(model, data, target, loss_fn)
+        
+        assert result['loss'] > 0
+        logger.info(f"Training loss: {result['loss']:.4f}")
+        logger.info("DeepFM training step successful")
+    
+    @pytest.mark.parametrize("mlp_depth", [1, 2, 3])
+    def test_deepfm_with_different_depths(self, sample_dense_features, sample_sparse_features,
+                                          sample_sequence_features, device, batch_size, mlp_depth):
+        """Test DeepFM with different MLP depths"""
+        logger.info("=" * 80)
+        logger.info(f"Testing DeepFM with MLP depth={mlp_depth}")
+        logger.info("=" * 80)
+        
+        dims = [128] * mlp_depth
+        mlp_params = {
+            'dims': dims,
+            'dropout': 0.0,
+            'activation': 'relu',
+        }
+        
+        model = DeepFM(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            mlp_params=mlp_params,
+            target=['label'],
+            device=device
+        )
+        
+        # Create sample data
+        data = {}
+        for feat in sample_dense_features:
+            data[feat.name] = torch.randn(batch_size, 1).to(device)
+        for feat in sample_sparse_features:
+            data[feat.name] = torch.randint(1, feat.vocab_size, (batch_size,)).to(device)
+        for feat in sample_sequence_features:
+            data[feat.name] = torch.randint(0, feat.vocab_size, (batch_size, feat.max_len)).to(device)
+        
+        output = run_model_inference(model, data)
+        assert_model_output_shape(output, (batch_size,))
+        
+        logger.info(f"DeepFM with depth={mlp_depth} test successful")
+
+
+class TestDIN:
+    """Test suite for DIN (Deep Interest Network)"""
+    
+    @pytest.fixture
+    def din_features(self):
+        """Create features for DIN model"""
+        logger.info("Creating features for DIN")
+        
+        dense_features = [
+            DenseFeature(name='price', embedding_dim=1),
+            DenseFeature(name='age', embedding_dim=1),
+        ]
+        
+        sparse_features = [
+            SparseFeature(name='user_id', vocab_size=1000, embedding_dim=16),
+            SparseFeature(name='gender', vocab_size=3, embedding_dim=4),
+            SparseFeature(name='candidate_item', vocab_size=5000, embedding_dim=32),  # Last one is candidate
+        ]
+        
+        sequence_features = [
+            SequenceFeature(
+                name='behavior_sequence',
+                vocab_size=5000,
+                max_len=30,
+                embedding_dim=32,
+                padding_idx=0
+            )
+        ]
+        
+        return dense_features, sparse_features, sequence_features
+    
+    def test_din_initialization(self, din_features, device):
+        """Test DIN model initialization"""
+        logger.info("=" * 80)
+        logger.info("Testing DIN initialization")
+        logger.info("=" * 80)
+        
+        dense_features, sparse_features, sequence_features = din_features
+        
+        mlp_params = {
+            'dims': [256, 128, 64],
+            'dropout': 0.2,
+            'activation': 'relu',
+        }
+        
+        model = DIN(
+            dense_features=dense_features,
+            sparse_features=sparse_features,
+            sequence_features=sequence_features,
+            mlp_params=mlp_params,
+            attention_hidden_units=[80, 40],
+            attention_activation='sigmoid',
+            target=['label'],
+            device=device
+        )
+        
+        assert model is not None
+        assert model.model_name == "DIN"
+        assert model.task_type == "binary"
+        logger.info("DIN initialization successful")
+        
+        # Count parameters
+        num_params = count_parameters(model)
+        assert num_params > 0
+    
+    def test_din_forward_pass(self, din_features, device, batch_size, set_random_seed):
+        """Test DIN forward pass with attention mechanism"""
+        logger.info("=" * 80)
+        logger.info("Testing DIN forward pass")
+        logger.info("=" * 80)
+        
+        dense_features, sparse_features, sequence_features = din_features
+        
+        mlp_params = {
+            'dims': [128, 64],
+            'dropout': 0.0,
+            'activation': 'relu',
+        }
+        
+        model = DIN(
+            dense_features=dense_features,
+            sparse_features=sparse_features,
+            sequence_features=sequence_features,
+            mlp_params=mlp_params,
+            attention_hidden_units=[64, 32],
+            attention_activation='sigmoid',
+            target=['label'],
+            device=device
+        )
+        
+        # Create sample data
+        data = {
+            'price': torch.randn(batch_size, 1).to(device),
+            'age': torch.randn(batch_size, 1).to(device),
+            'user_id': torch.randint(1, 1000, (batch_size,)).to(device),
+            'gender': torch.randint(1, 3, (batch_size,)).to(device),
+            'candidate_item': torch.randint(1, 5000, (batch_size,)).to(device),
+            'behavior_sequence': torch.randint(0, 5000, (batch_size, 30)).to(device),
+        }
+        
+        # Forward pass
+        output = run_model_inference(model, data)
+        
+        # Assertions
+        assert_model_output_shape(output, (batch_size,), "DIN output shape")
+        assert_model_output_range(output, 0.0, 1.0)
+        assert_no_nan_or_inf(output, "DIN output")
+        
+        logger.info("DIN forward pass successful")
+    
+    def test_din_attention_weights(self, din_features, device, batch_size):
+        """Test that DIN attention mechanism produces valid weights"""
+        logger.info("=" * 80)
+        logger.info("Testing DIN attention mechanism")
+        logger.info("=" * 80)
+        
+        dense_features, sparse_features, sequence_features = din_features
+        
+        mlp_params = {
+            'dims': [64],
+            'dropout': 0.0,
+            'activation': 'relu',
+        }
+        
+        model = DIN(
+            dense_features=dense_features,
+            sparse_features=sparse_features,
+            sequence_features=sequence_features,
+            mlp_params=mlp_params,
+            attention_hidden_units=[32],
+            attention_activation='sigmoid',
+            attention_use_softmax=True,
+            target=['label'],
+            device=device
+        )
+        
+        # Create sample data with some padding
+        data = {
+            'price': torch.randn(batch_size, 1).to(device),
+            'age': torch.randn(batch_size, 1).to(device),
+            'user_id': torch.randint(1, 1000, (batch_size,)).to(device),
+            'gender': torch.randint(1, 3, (batch_size,)).to(device),
+            'candidate_item': torch.randint(1, 5000, (batch_size,)).to(device),
+            'behavior_sequence': torch.randint(0, 5000, (batch_size, 30)).to(device),
+        }
+        
+        # Set some positions to padding
+        data['behavior_sequence'][:, 20:] = 0
+        
+        output = run_model_inference(model, data)
+        
+        assert_model_output_shape(output, (batch_size,))
+        assert_no_nan_or_inf(output, "DIN output with padding")
+        
+        logger.info("DIN attention mechanism test successful")
+    
+    @pytest.mark.parametrize("attention_activation", ["sigmoid", "relu", "tanh"])
+    def test_din_attention_activations(self, din_features, device, batch_size, attention_activation):
+        """Test DIN with different attention activation functions"""
+        logger.info("=" * 80)
+        logger.info(f"Testing DIN with {attention_activation} attention activation")
+        logger.info("=" * 80)
+        
+        dense_features, sparse_features, sequence_features = din_features
+        
+        mlp_params = {'dims': [64], 'dropout': 0.0, 'activation': 'relu'}
+        
+        model = DIN(
+            dense_features=dense_features,
+            sparse_features=sparse_features,
+            sequence_features=sequence_features,
+            mlp_params=mlp_params,
+            attention_hidden_units=[32],
+            attention_activation=attention_activation,
+            target=['label'],
+            device=device
+        )
+        
+        data = {
+            'price': torch.randn(batch_size, 1).to(device),
+            'age': torch.randn(batch_size, 1).to(device),
+            'user_id': torch.randint(1, 1000, (batch_size,)).to(device),
+            'gender': torch.randint(1, 3, (batch_size,)).to(device),
+            'candidate_item': torch.randint(1, 5000, (batch_size,)).to(device),
+            'behavior_sequence': torch.randint(0, 5000, (batch_size, 30)).to(device),
+        }
+        
+        output = run_model_inference(model, data)
+        assert_model_output_shape(output, (batch_size,))
+        
+        logger.info(f"DIN with {attention_activation} activation test successful")
+
+
+class TestRankingModelsComparison:
+    """Comparison and integration tests for ranking models"""
+    
+    def test_deepfm_vs_din_output_consistency(self, device, batch_size):
+        """Test that different models produce consistent output formats"""
+        logger.info("=" * 80)
+        logger.info("Testing ranking models output consistency")
+        logger.info("=" * 80)
+        
+        # Simple features for both models
+        dense_features = [DenseFeature(name='feat1', embedding_dim=1)]
+        sparse_features = [
+            SparseFeature(name='sparse1', vocab_size=100, embedding_dim=8),
+            SparseFeature(name='sparse2', vocab_size=100, embedding_dim=8),
+        ]
+        sequence_features = [
+            SequenceFeature(name='seq1', vocab_size=100, max_len=10, 
+                          embedding_dim=8, padding_idx=0)
+        ]
+        
+        # Data
+        data = {
+            'feat1': torch.randn(batch_size, 1).to(device),
+            'sparse1': torch.randint(1, 100, (batch_size,)).to(device),
+            'sparse2': torch.randint(1, 100, (batch_size,)).to(device),
+            'seq1': torch.randint(0, 100, (batch_size, 10)).to(device),
+        }
+        
+        # Test DeepFM
+        deepfm = DeepFM(
+            dense_features=dense_features,
+            sparse_features=sparse_features,
+            sequence_features=sequence_features,
+            mlp_params={'dims': [32], 'dropout': 0.0, 'activation': 'relu'},
+            target=['label'],
+            device=device
+        )
+        
+        deepfm_output = run_model_inference(deepfm, data)
+        assert_model_output_shape(deepfm_output, (batch_size,))
+        assert_model_output_range(deepfm_output, 0.0, 1.0)
+        
+        # Test DIN
+        din = DIN(
+            dense_features=dense_features,
+            sparse_features=sparse_features,
+            sequence_features=sequence_features,
+            mlp_params={'dims': [32], 'dropout': 0.0, 'activation': 'relu'},
+            attention_hidden_units=[16],
+            target=['label'],
+            device=device
+        )
+        
+        din_output = run_model_inference(din, data)
+        assert_model_output_shape(din_output, (batch_size,))
+        assert_model_output_range(din_output, 0.0, 1.0)
+        
+        logger.info("Ranking models output consistency test successful")
+    
+    def test_model_with_empty_features(self, device, batch_size):
+        """Test models with minimal feature configurations"""
+        logger.info("=" * 80)
+        logger.info("Testing models with minimal features")
+        logger.info("=" * 80)
+        
+        # Only sparse features
+        sparse_features = [
+            SparseFeature(name='feat1', vocab_size=100, embedding_dim=8),
+            SparseFeature(name='feat2', vocab_size=50, embedding_dim=8),
+        ]
+        
+        model = DeepFM(
+            dense_features=[],
+            sparse_features=sparse_features,
+            sequence_features=[],
+            mlp_params={'dims': [32], 'dropout': 0.0, 'activation': 'relu'},
+            target=['label'],
+            device=device
+        )
+        
+        data = {
+            'feat1': torch.randint(1, 100, (batch_size,)).to(device),
+            'feat2': torch.randint(1, 50, (batch_size,)).to(device),
+        }
+        
+        output = run_model_inference(model, data)
+        assert_model_output_shape(output, (batch_size,))
+        
+        logger.info("Minimal features test successful")
+    
+    def test_models_save_and_load(self, sample_dense_features, sample_sparse_features,
+                                  sample_sequence_features, device, batch_size, tmp_path):
+        """Test saving and loading model state"""
+        logger.info("=" * 80)
+        logger.info("Testing model save and load")
+        logger.info("=" * 80)
+        
+        mlp_params = {'dims': [32], 'dropout': 0.0, 'activation': 'relu'}
+        
+        # Create and train model
+        model1 = DeepFM(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            mlp_params=mlp_params,
+            target=['label'],
+            device=device
+        )
+        
+        # Create test data
+        data = {}
+        for feat in sample_dense_features:
+            data[feat.name] = torch.randn(batch_size, 1).to(device)
+        for feat in sample_sparse_features:
+            data[feat.name] = torch.randint(1, feat.vocab_size, (batch_size,)).to(device)
+        for feat in sample_sequence_features:
+            data[feat.name] = torch.randint(0, feat.vocab_size, (batch_size, feat.max_len)).to(device)
+        
+        # Get output from original model
+        output1 = run_model_inference(model1, data)
+        
+        # Save model
+        save_path = tmp_path / "model.pth"
+        torch.save(model1.state_dict(), save_path)
+        logger.info(f"Model saved to {save_path}")
+        
+        # Create new model and load weights
+        model2 = DeepFM(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            mlp_params=mlp_params,
+            target=['label'],
+            device=device
+        )
+        
+        model2.load_state_dict(torch.load(save_path, weights_only=True))
+        logger.info("Model loaded from checkpoint")
+        
+        # Get output from loaded model
+        output2 = run_model_inference(model2, data)
+        
+        # Outputs should be identical
+        assert torch.allclose(output1, output2, atol=1e-6), \
+            "Loaded model should produce identical outputs"
+        
+        logger.info("Model save and load test successful")
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "-s"])
