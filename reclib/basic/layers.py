@@ -20,7 +20,7 @@ class PredictionLayer(nn.Module):
     def forward(self, x):
         if self.task_type == "classification":
             x = torch.sigmoid(x)
-        return x
+        return x.squeeze(-1)
 
 
 class EmbeddingLayer(nn.Module):

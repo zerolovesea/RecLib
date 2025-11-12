@@ -97,16 +97,26 @@ class MIND(BaseMatchModel):
             # 假设序列特征已经通过embedding层处理
             # 获取序列长度 (从第一个序列特征)
             seq_max_len = user_sequence_features[0].max_len if user_sequence_features[0].max_len else 50
+            # 使用序列特征的实际embedding_dim
+            seq_embedding_dim = user_sequence_features[0].embedding_dim
             
             # Capsule Network for multi-interest extraction
             self.capsule_network = CapsuleNetwork(
-                embedding_dim=embedding_dim,
+                embedding_dim=seq_embedding_dim,
                 seq_len=seq_max_len,
                 bilinear_type=capsule_bilinear_type,
                 interest_num=num_interests,
                 routing_times=routing_times,
                 relu_layer=relu_layer
             )
+            
+            # 如果目标embedding_dim与序列embedding_dim不同,添加投影层
+            if seq_embedding_dim != embedding_dim:
+                self.interest_projection = nn.Linear(seq_embedding_dim, embedding_dim, bias=False)
+                # 初始化投影层权重
+                nn.init.xavier_uniform_(self.interest_projection.weight)
+            else:
+                self.interest_projection = None
         
         # Item tower
         item_features = []
@@ -172,7 +182,11 @@ class MIND(BaseMatchModel):
         mask = (seq_input != seq_feature.padding_idx).float()  # [batch_size, seq_len]
         
         # 使用Capsule Network提取多兴趣
-        multi_interests = self.capsule_network(seq_emb, mask)  # [batch_size, num_interests, embedding_dim]
+        multi_interests = self.capsule_network(seq_emb, mask)  # [batch_size, num_interests, seq_embedding_dim]
+        
+        # 投影到目标embedding_dim
+        if self.interest_projection is not None:
+            multi_interests = self.interest_projection(multi_interests)  # [batch_size, num_interests, embedding_dim]
         
         # L2 normalization
         multi_interests = F.normalize(multi_interests, p=2, dim=-1)

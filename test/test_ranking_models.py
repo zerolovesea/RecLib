@@ -20,6 +20,11 @@ import logging
 from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
 from reclib.models.ranking.deepfm import DeepFM
 from reclib.models.ranking.din import DIN
+from reclib.models.ranking.autoint import AutoInt
+from reclib.models.ranking.widedeep import WideDeep
+from reclib.models.ranking.xdeepfm import xDeepFM
+from reclib.models.ranking.dcn import DCN
+from reclib.models.ranking.dien import DIEN
 
 from test.test_utils import (
     assert_model_output_shape,
@@ -520,6 +525,453 @@ class TestRankingModelsComparison:
             "Loaded model should produce identical outputs"
         
         logger.info("Model save and load test successful")
+
+
+class TestAutoInt:
+    """Test suite for AutoInt (Automatic Feature Interaction)"""
+    
+    def test_autoint_initialization(self, sample_dense_features, sample_sparse_features,
+                                    sample_sequence_features, device):
+        """Test AutoInt model initialization"""
+        logger.info("=" * 80)
+        logger.info("Testing AutoInt initialization")
+        logger.info("=" * 80)
+        
+        model = AutoInt(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            att_layer_num=3,
+            att_embedding_dim=8,
+            att_head_num=2,
+            att_dropout=0.1,
+            target=['label'],
+            device=device
+        )
+        
+        assert model is not None
+        assert model.model_name == "AutoInt"
+        assert model.att_layer_num == 3
+        logger.info("AutoInt initialization successful")
+        
+        count_parameters(model)
+    
+    def test_autoint_forward_pass(self, sample_dense_features, sample_sparse_features,
+                                  sample_sequence_features, sample_batch_data,
+                                  device, batch_size, set_random_seed):
+        """Test AutoInt forward pass with self-attention"""
+        logger.info("=" * 80)
+        logger.info("Testing AutoInt forward pass")
+        logger.info("=" * 80)
+        
+        model = AutoInt(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            att_layer_num=2,
+            att_embedding_dim=16,
+            att_head_num=2,
+            att_dropout=0.0,
+            target=['label'],
+            device=device
+        )
+        
+        data = {k: v.to(device) for k, v in sample_batch_data.items() if k != 'label'}
+        output = run_model_inference(model, data)
+        
+        assert_model_output_shape(output, (batch_size,), "AutoInt output shape")
+        assert_model_output_range(output, 0.0, 1.0)
+        assert_no_nan_or_inf(output, "AutoInt output")
+        
+        logger.info("AutoInt forward pass successful")
+    
+    @pytest.mark.parametrize("att_head_num", [1, 2, 4])
+    def test_autoint_different_heads(self, sample_dense_features, sample_sparse_features,
+                                     sample_sequence_features, device, batch_size, att_head_num):
+        """Test AutoInt with different numbers of attention heads"""
+        logger.info("=" * 80)
+        logger.info(f"Testing AutoInt with {att_head_num} attention heads")
+        logger.info("=" * 80)
+        
+        model = AutoInt(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            att_layer_num=2,
+            att_embedding_dim=16,
+            att_head_num=att_head_num,
+            target=['label'],
+            device=device
+        )
+        
+        data = {}
+        for feat in sample_dense_features:
+            data[feat.name] = torch.randn(batch_size, 1).to(device)
+        for feat in sample_sparse_features:
+            data[feat.name] = torch.randint(1, feat.vocab_size, (batch_size,)).to(device)
+        for feat in sample_sequence_features:
+            data[feat.name] = torch.randint(0, feat.vocab_size, (batch_size, feat.max_len)).to(device)
+        
+        output = run_model_inference(model, data)
+        assert_model_output_shape(output, (batch_size,))
+        
+        logger.info(f"AutoInt with {att_head_num} heads test successful")
+
+
+class TestWideDeep:
+    """Test suite for Wide&Deep"""
+    
+    def test_widedeep_initialization(self, sample_dense_features, sample_sparse_features,
+                                     sample_sequence_features, device):
+        """Test Wide&Deep model initialization"""
+        logger.info("=" * 80)
+        logger.info("Testing Wide&Deep initialization")
+        logger.info("=" * 80)
+        
+        mlp_params = {
+            'dims': [256, 128, 64],
+            'dropout': 0.2,
+            'activation': 'relu',
+        }
+        
+        model = WideDeep(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            mlp_params=mlp_params,
+            target=['label'],
+            device=device
+        )
+        
+        assert model is not None
+        assert model.model_name == "WideDeep"
+        logger.info("Wide&Deep initialization successful")
+        
+        count_parameters(model)
+    
+    def test_widedeep_forward_pass(self, sample_dense_features, sample_sparse_features,
+                                   sample_sequence_features, sample_batch_data,
+                                   device, batch_size, set_random_seed):
+        """Test Wide&Deep forward pass"""
+        logger.info("=" * 80)
+        logger.info("Testing Wide&Deep forward pass")
+        logger.info("=" * 80)
+        
+        mlp_params = {
+            'dims': [128, 64],
+            'dropout': 0.0,
+            'activation': 'relu',
+        }
+        
+        model = WideDeep(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            mlp_params=mlp_params,
+            target=['label'],
+            device=device
+        )
+        
+        data = {k: v.to(device) for k, v in sample_batch_data.items() if k != 'label'}
+        output = run_model_inference(model, data)
+        
+        assert_model_output_shape(output, (batch_size,), "Wide&Deep output shape")
+        assert_model_output_range(output, 0.0, 1.0)
+        assert_no_nan_or_inf(output, "Wide&Deep output")
+        
+        logger.info("Wide&Deep forward pass successful")
+
+
+class TestDCN:
+    """Test suite for DCN (Deep & Cross Network)"""
+    
+    def test_dcn_initialization(self, sample_dense_features, sample_sparse_features,
+                               sample_sequence_features, device):
+        """Test DCN model initialization"""
+        logger.info("=" * 80)
+        logger.info("Testing DCN initialization")
+        logger.info("=" * 80)
+        
+        model = DCN(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            cross_num=3,
+            mlp_params={'dims': [128, 64], 'dropout': 0.2, 'activation': 'relu'},
+            target=['label'],
+            device=device
+        )
+        
+        assert model is not None
+        assert model.model_name == "DCN"
+        logger.info("DCN initialization successful")
+        
+        count_parameters(model)
+    
+    def test_dcn_forward_pass(self, sample_dense_features, sample_sparse_features,
+                             sample_sequence_features, sample_batch_data,
+                             device, batch_size, set_random_seed):
+        """Test DCN forward pass with cross network"""
+        logger.info("=" * 80)
+        logger.info("Testing DCN forward pass")
+        logger.info("=" * 80)
+        
+        model = DCN(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            cross_num=2,
+            mlp_params={'dims': [64, 32], 'dropout': 0.0, 'activation': 'relu'},
+            target=['label'],
+            device=device
+        )
+        
+        data = {k: v.to(device) for k, v in sample_batch_data.items() if k != 'label'}
+        output = run_model_inference(model, data)
+        
+        assert_model_output_shape(output, (batch_size,), "DCN output shape")
+        assert_model_output_range(output, 0.0, 1.0)
+        assert_no_nan_or_inf(output, "DCN output")
+        
+        logger.info("DCN forward pass successful")
+    
+    def test_dcn_without_dnn(self, sample_dense_features, sample_sparse_features,
+                            sample_sequence_features, device, batch_size):
+        """Test DCN without DNN part (cross network only)"""
+        logger.info("=" * 80)
+        logger.info("Testing DCN without DNN")
+        logger.info("=" * 80)
+        
+        model = DCN(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            cross_num=3,
+            mlp_params=None,  # No DNN
+            target=['label'],
+            device=device
+        )
+        
+        data = {}
+        for feat in sample_dense_features:
+            data[feat.name] = torch.randn(batch_size, 1).to(device)
+        for feat in sample_sparse_features:
+            data[feat.name] = torch.randint(1, feat.vocab_size, (batch_size,)).to(device)
+        for feat in sample_sequence_features:
+            data[feat.name] = torch.randint(0, feat.vocab_size, (batch_size, feat.max_len)).to(device)
+        
+        output = run_model_inference(model, data)
+        assert_model_output_shape(output, (batch_size,))
+        
+        logger.info("DCN without DNN test successful")
+    
+    @pytest.mark.parametrize("cross_num", [1, 2, 3, 5])
+    def test_dcn_different_cross_layers(self, sample_dense_features, sample_sparse_features,
+                                       sample_sequence_features, device, batch_size, cross_num):
+        """Test DCN with different numbers of cross layers"""
+        logger.info("=" * 80)
+        logger.info(f"Testing DCN with {cross_num} cross layers")
+        logger.info("=" * 80)
+        
+        model = DCN(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            cross_num=cross_num,
+            target=['label'],
+            device=device
+        )
+        
+        data = {}
+        for feat in sample_dense_features:
+            data[feat.name] = torch.randn(batch_size, 1).to(device)
+        for feat in sample_sparse_features:
+            data[feat.name] = torch.randint(1, feat.vocab_size, (batch_size,)).to(device)
+        for feat in sample_sequence_features:
+            data[feat.name] = torch.randint(0, feat.vocab_size, (batch_size, feat.max_len)).to(device)
+        
+        output = run_model_inference(model, data)
+        assert_model_output_shape(output, (batch_size,))
+        
+        logger.info(f"DCN with {cross_num} cross layers test successful")
+
+
+class TestxDeepFM:
+    """Test suite for xDeepFM (Extreme Deep Factorization Machine)"""
+    
+    def test_xdeepfm_initialization(self, sample_dense_features, sample_sparse_features,
+                                   sample_sequence_features, device):
+        """Test xDeepFM model initialization"""
+        logger.info("=" * 80)
+        logger.info("Testing xDeepFM initialization")
+        logger.info("=" * 80)
+        
+        model = xDeepFM(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            cin_size=[128, 128],
+            mlp_params={'dims': [256, 128, 64], 'dropout': 0.2, 'activation': 'relu'},
+            target=['label'],
+            device=device
+        )
+        
+        assert model is not None
+        assert model.model_name == "xDeepFM"
+        logger.info("xDeepFM initialization successful")
+        
+        count_parameters(model)
+    
+    def test_xdeepfm_forward_pass(self, sample_dense_features, sample_sparse_features,
+                                  sample_sequence_features, sample_batch_data,
+                                  device, batch_size, set_random_seed):
+        """Test xDeepFM forward pass with CIN"""
+        logger.info("=" * 80)
+        logger.info("Testing xDeepFM forward pass")
+        logger.info("=" * 80)
+        
+        model = xDeepFM(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            cin_size=[64, 64],
+            mlp_params={'dims': [128, 64], 'dropout': 0.0, 'activation': 'relu'},
+            target=['label'],
+            device=device
+        )
+        
+        data = {k: v.to(device) for k, v in sample_batch_data.items() if k != 'label'}
+        output = run_model_inference(model, data)
+        
+        assert_model_output_shape(output, (batch_size,), "xDeepFM output shape")
+        assert_model_output_range(output, 0.0, 1.0)
+        assert_no_nan_or_inf(output, "xDeepFM output")
+        
+        logger.info("xDeepFM forward pass successful")
+    
+    @pytest.mark.parametrize("cin_layers", [[64], [64, 64], [128, 64, 32]])
+    def test_xdeepfm_different_cin_configs(self, sample_dense_features, sample_sparse_features,
+                                          sample_sequence_features, device, batch_size, cin_layers):
+        """Test xDeepFM with different CIN configurations"""
+        logger.info("=" * 80)
+        logger.info(f"Testing xDeepFM with CIN layers: {cin_layers}")
+        logger.info("=" * 80)
+        
+        model = xDeepFM(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            cin_size=cin_layers,
+            mlp_params={'dims': [64], 'dropout': 0.0, 'activation': 'relu'},
+            target=['label'],
+            device=device
+        )
+        
+        data = {}
+        for feat in sample_dense_features:
+            data[feat.name] = torch.randn(batch_size, 1).to(device)
+        for feat in sample_sparse_features:
+            data[feat.name] = torch.randint(1, feat.vocab_size, (batch_size,)).to(device)
+        for feat in sample_sequence_features:
+            data[feat.name] = torch.randint(0, feat.vocab_size, (batch_size, feat.max_len)).to(device)
+        
+        output = run_model_inference(model, data)
+        assert_model_output_shape(output, (batch_size,))
+        
+        logger.info(f"xDeepFM with CIN {cin_layers} test successful")
+
+
+class TestDIEN:
+    """Test suite for DIEN (Deep Interest Evolution Network)"""
+    
+    @pytest.fixture
+    def dien_features(self):
+        """Create features for DIEN model"""
+        logger.info("Creating features for DIEN")
+        
+        dense_features = [
+            DenseFeature(name='price', embedding_dim=1),
+            DenseFeature(name='age', embedding_dim=1),
+        ]
+        
+        sparse_features = [
+            SparseFeature(name='user_id', vocab_size=1000, embedding_dim=16),
+            SparseFeature(name='gender', vocab_size=3, embedding_dim=4),
+            SparseFeature(name='candidate_item', vocab_size=5000, embedding_dim=32),
+        ]
+        
+        sequence_features = [
+            SequenceFeature(
+                name='behavior_sequence',
+                vocab_size=5000,
+                max_len=30,
+                embedding_dim=32,
+                padding_idx=0
+            )
+        ]
+        
+        return dense_features, sparse_features, sequence_features
+    
+    def test_dien_initialization(self, dien_features, device):
+        """Test DIEN model initialization"""
+        logger.info("=" * 80)
+        logger.info("Testing DIEN initialization")
+        logger.info("=" * 80)
+        
+        dense_features, sparse_features, sequence_features = dien_features
+        
+        model = DIEN(
+            dense_features=dense_features,
+            sparse_features=sparse_features,
+            sequence_features=sequence_features,
+            gru_hidden_size=32,
+            attention_hidden_units=[80, 40],
+            mlp_params={'dims': [256, 128, 64], 'dropout': 0.2, 'activation': 'relu'},
+            target=['label'],
+            device=device
+        )
+        
+        assert model is not None
+        assert model.model_name == "DIEN"
+        logger.info("DIEN initialization successful")
+        
+        count_parameters(model)
+    
+    def test_dien_forward_pass(self, dien_features, device, batch_size, set_random_seed):
+        """Test DIEN forward pass with GRU and attention"""
+        logger.info("=" * 80)
+        logger.info("Testing DIEN forward pass")
+        logger.info("=" * 80)
+        
+        dense_features, sparse_features, sequence_features = dien_features
+        
+        model = DIEN(
+            dense_features=dense_features,
+            sparse_features=sparse_features,
+            sequence_features=sequence_features,
+            gru_hidden_size=32,
+            attention_hidden_units=[64, 32],
+            mlp_params={'dims': [128, 64], 'dropout': 0.0, 'activation': 'relu'},
+            target=['label'],
+            device=device
+        )
+        
+        data = {
+            'price': torch.randn(batch_size, 1).to(device),
+            'age': torch.randn(batch_size, 1).to(device),
+            'user_id': torch.randint(1, 1000, (batch_size,)).to(device),
+            'gender': torch.randint(1, 3, (batch_size,)).to(device),
+            'candidate_item': torch.randint(1, 5000, (batch_size,)).to(device),
+            'behavior_sequence': torch.randint(0, 5000, (batch_size, 30)).to(device),
+        }
+        
+        output = run_model_inference(model, data)
+        
+        assert_model_output_shape(output, (batch_size,), "DIEN output shape")
+        assert_model_output_range(output, 0.0, 1.0)
+        assert_no_nan_or_inf(output, "DIEN output")
+        
+        logger.info("DIEN forward pass successful")
 
 
 if __name__ == "__main__":
