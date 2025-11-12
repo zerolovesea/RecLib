@@ -120,5 +120,4 @@ local_mmoe.py
 # DataProcessor saved files
 processor/
 
-docs/
 pypirc.template

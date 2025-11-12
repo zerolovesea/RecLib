@@ -17,6 +17,8 @@ import logging
 from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
 from reclib.models.match.dssm import DSSM
 from reclib.models.match.youtube_dnn import YoutubeDNN
+from reclib.models.match.mind import MIND
+from reclib.models.match.sdm import SDM
 
 from test.test_utils import (
     assert_model_output_shape,
@@ -437,6 +439,260 @@ class TestMatchModelsComparison:
             "Models with same seed should produce identical outputs"
         
         logger.info("Match models determinism test successful")
+
+
+class TestMIND:
+    """Test suite for MIND (Multi-Interest Network with Dynamic Routing)"""
+    
+    @pytest.fixture
+    def mind_user_features(self):
+        """Create user features for MIND with sequence"""
+        user_sparse = [
+            SparseFeature(name='user_id', vocab_size=1000, embedding_dim=16)
+        ]
+        user_sequence = [
+            SequenceFeature(
+                name='user_behavior',
+                vocab_size=10000,
+                max_len=50,
+                embedding_dim=32,
+                padding_idx=0
+            )
+        ]
+        return [], user_sparse, user_sequence
+    
+    @pytest.fixture
+    def mind_item_features(self):
+        """Create item features for MIND"""
+        item_sparse = [
+            SparseFeature(name='item_id', vocab_size=10000, embedding_dim=32),
+        ]
+        return [], item_sparse, []
+    
+    def test_mind_initialization(self, mind_user_features, mind_item_features, device):
+        """Test MIND model initialization"""
+        logger.info("=" * 80)
+        logger.info("Testing MIND initialization")
+        logger.info("=" * 80)
+        
+        user_dense, user_sparse, user_sequence = mind_user_features
+        item_dense, item_sparse, item_sequence = mind_item_features
+        
+        model = MIND(
+            user_dense_features=user_dense,
+            user_sparse_features=user_sparse,
+            user_sequence_features=user_sequence,
+            item_dense_features=item_dense,
+            item_sparse_features=item_sparse,
+            item_sequence_features=item_sequence,
+            embedding_dim=64,
+            num_interests=4,
+            training_mode='pointwise',
+            device=device
+        )
+        
+        assert model is not None
+        assert model.model_name == "MIND"
+        assert model.num_interests == 4
+        logger.info("MIND initialization successful")
+        
+        count_parameters(model)
+    
+    def test_mind_forward_pass(self, mind_user_features, mind_item_features, device, batch_size, set_random_seed):
+        """Test MIND forward pass with multi-interest extraction"""
+        logger.info("=" * 80)
+        logger.info("Testing MIND forward pass")
+        logger.info("=" * 80)
+        
+        user_dense, user_sparse, user_sequence = mind_user_features
+        item_dense, item_sparse, item_sequence = mind_item_features
+        
+        model = MIND(
+            user_dense_features=user_dense,
+            user_sparse_features=user_sparse,
+            user_sequence_features=user_sequence,
+            item_dense_features=item_dense,
+            item_sparse_features=item_sparse,
+            item_sequence_features=item_sequence,
+            embedding_dim=64,
+            num_interests=3,
+            training_mode='pointwise',
+            device=device
+        )
+        
+        data = {
+            'user_id': torch.randint(1, 1000, (batch_size,)).to(device),
+            'user_behavior': torch.randint(0, 10000, (batch_size, 50)).to(device),
+            'item_id': torch.randint(1, 10000, (batch_size,)).to(device),
+        }
+        
+        output = run_model_inference(model, data)
+        
+        assert_model_output_shape(output, (batch_size,), "MIND output shape")
+        assert_model_output_range(output, 0.0, 1.0)
+        assert_no_nan_or_inf(output, "MIND output")
+        
+        logger.info("MIND forward pass successful")
+    
+    @pytest.mark.parametrize("num_interests", [2, 4, 8])
+    def test_mind_different_interests(self, mind_user_features, mind_item_features, device, batch_size, num_interests):
+        """Test MIND with different numbers of interests"""
+        logger.info("=" * 80)
+        logger.info(f"Testing MIND with {num_interests} interests")
+        logger.info("=" * 80)
+        
+        user_dense, user_sparse, user_sequence = mind_user_features
+        item_dense, item_sparse, item_sequence = mind_item_features
+        
+        model = MIND(
+            user_dense_features=user_dense,
+            user_sparse_features=user_sparse,
+            user_sequence_features=user_sequence,
+            item_dense_features=item_dense,
+            item_sparse_features=item_sparse,
+            item_sequence_features=item_sequence,
+            embedding_dim=64,
+            num_interests=num_interests,
+            device=device
+        )
+        
+        data = {
+            'user_id': torch.randint(1, 1000, (batch_size,)).to(device),
+            'user_behavior': torch.randint(0, 10000, (batch_size, 50)).to(device),
+            'item_id': torch.randint(1, 10000, (batch_size,)).to(device),
+        }
+        
+        output = run_model_inference(model, data)
+        assert_model_output_shape(output, (batch_size,))
+        
+        logger.info(f"MIND with {num_interests} interests test successful")
+
+
+class TestSDM:
+    """Test suite for SDM (Sequential Deep Matching)"""
+    
+    @pytest.fixture
+    def sdm_user_features(self):
+        """Create user features for SDM with sequence"""
+        user_sparse = [
+            SparseFeature(name='user_id', vocab_size=1000, embedding_dim=16)
+        ]
+        user_sequence = [
+            SequenceFeature(
+                name='item_sequence',
+                vocab_size=10000,
+                max_len=50,
+                embedding_dim=32,
+                padding_idx=0
+            )
+        ]
+        return [], user_sparse, user_sequence
+    
+    @pytest.fixture
+    def sdm_item_features(self):
+        """Create item features for SDM"""
+        item_sparse = [
+            SparseFeature(name='item_id', vocab_size=10000, embedding_dim=32),
+        ]
+        return [], item_sparse, []
+    
+    def test_sdm_initialization(self, sdm_user_features, sdm_item_features, device):
+        """Test SDM model initialization"""
+        logger.info("=" * 80)
+        logger.info("Testing SDM initialization")
+        logger.info("=" * 80)
+        
+        user_dense, user_sparse, user_sequence = sdm_user_features
+        item_dense, item_sparse, item_sequence = sdm_item_features
+        
+        model = SDM(
+            user_dense_features=user_dense,
+            user_sparse_features=user_sparse,
+            user_sequence_features=user_sequence,
+            item_dense_features=item_dense,
+            item_sparse_features=item_sparse,
+            item_sequence_features=item_sequence,
+            rnn_type='GRU',
+            rnn_hidden_size=64,
+            training_mode='pointwise',
+            device=device
+        )
+        
+        assert model is not None
+        assert model.model_name == "SDM"
+        assert model.rnn_type == 'GRU'
+        logger.info("SDM initialization successful")
+        
+        count_parameters(model)
+    
+    def test_sdm_forward_pass(self, sdm_user_features, sdm_item_features, device, batch_size, set_random_seed):
+        """Test SDM forward pass with RNN"""
+        logger.info("=" * 80)
+        logger.info("Testing SDM forward pass")
+        logger.info("=" * 80)
+        
+        user_dense, user_sparse, user_sequence = sdm_user_features
+        item_dense, item_sparse, item_sequence = sdm_item_features
+        
+        model = SDM(
+            user_dense_features=user_dense,
+            user_sparse_features=user_sparse,
+            user_sequence_features=user_sequence,
+            item_dense_features=item_dense,
+            item_sparse_features=item_sparse,
+            item_sequence_features=item_sequence,
+            rnn_type='GRU',
+            rnn_hidden_size=64,
+            training_mode='pointwise',
+            device=device
+        )
+        
+        data = {
+            'user_id': torch.randint(1, 1000, (batch_size,)).to(device),
+            'item_sequence': torch.randint(0, 10000, (batch_size, 50)).to(device),
+            'item_id': torch.randint(1, 10000, (batch_size,)).to(device),
+        }
+        
+        output = run_model_inference(model, data)
+        
+        assert_model_output_shape(output, (batch_size,), "SDM output shape")
+        assert_model_output_range(output, 0.0, 1.0)
+        assert_no_nan_or_inf(output, "SDM output")
+        
+        logger.info("SDM forward pass successful")
+    
+    @pytest.mark.parametrize("rnn_type", ['GRU', 'LSTM'])
+    def test_sdm_different_rnn_types(self, sdm_user_features, sdm_item_features, device, batch_size, rnn_type):
+        """Test SDM with different RNN types"""
+        logger.info("=" * 80)
+        logger.info(f"Testing SDM with {rnn_type}")
+        logger.info("=" * 80)
+        
+        user_dense, user_sparse, user_sequence = sdm_user_features
+        item_dense, item_sparse, item_sequence = sdm_item_features
+        
+        model = SDM(
+            user_dense_features=user_dense,
+            user_sparse_features=user_sparse,
+            user_sequence_features=user_sequence,
+            item_dense_features=item_dense,
+            item_sparse_features=item_sparse,
+            item_sequence_features=item_sequence,
+            rnn_type=rnn_type,
+            rnn_hidden_size=64,
+            device=device
+        )
+        
+        data = {
+            'user_id': torch.randint(1, 1000, (batch_size,)).to(device),
+            'item_sequence': torch.randint(0, 10000, (batch_size, 50)).to(device),
+            'item_id': torch.randint(1, 10000, (batch_size,)).to(device),
+        }
+        
+        output = run_model_inference(model, data)
+        assert_model_output_shape(output, (batch_size,))
+        
+        logger.info(f"SDM with {rnn_type} test successful")
 
 
 if __name__ == "__main__":

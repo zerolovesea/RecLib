@@ -96,8 +96,8 @@ class WideDeep(BaseModel):
         y_deep = self.mlp(input_deep)  # [B, 1]
         
         # Wide part
-        input_wide = self.embedding(x=x, features=self.wide_features, squeeze_dim=False)
-        y_wide = self.linear(input_wide.flatten(start_dim=1))
+        input_wide = self.embedding(x=x, features=self.wide_features, squeeze_dim=True)
+        y_wide = self.linear(input_wide)
 
         # Combine wide and deep
         y = y_wide + y_deep
