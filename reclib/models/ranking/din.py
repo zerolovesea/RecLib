@@ -65,7 +65,6 @@ class DIN(BaseModel):
         
         # Features classification
         # DIN requires: candidate item + user behavior sequence + other features
-        # Assume: the last sequence feature is user behavior, the last sparse feature is candidate item
         if len(sequence_features) == 0:
             raise ValueError("DIN requires at least one sequence feature for user behavior history")
         
@@ -84,6 +83,9 @@ class DIN(BaseModel):
         
         # Attention layer for behavior sequence
         behavior_emb_dim = self.behavior_feature.embedding_dim
+        self.candidate_attention_proj = None
+        if self.candidate_feature is not None and self.candidate_feature.embedding_dim != behavior_emb_dim:
+            self.candidate_attention_proj = nn.Linear(self.candidate_feature.embedding_dim, behavior_emb_dim)
         self.attention = AttentionPoolingLayer(
             embedding_dim=behavior_emb_dim,
             hidden_units=attention_hidden_units,
@@ -106,7 +108,7 @@ class DIN(BaseModel):
         # Register regularization weights
         self._register_regularization_weights(
             embedding_attr='embedding',
-            include_modules=['attention', 'mlp']
+            include_modules=['attention', 'mlp', 'candidate_attention_proj']
         )
 
         self.compile(
@@ -138,8 +140,11 @@ class DIN(BaseModel):
         
         # Apply attention pooling
         if candidate_emb is not None:
+            candidate_query = candidate_emb
+            if self.candidate_attention_proj is not None:
+                candidate_query = self.candidate_attention_proj(candidate_query)
             pooled_behavior = self.attention(
-                query=candidate_emb,
+                query=candidate_query,
                 keys=behavior_emb,
                 mask=mask
             )  # [B, emb_dim]

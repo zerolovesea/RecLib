@@ -83,7 +83,7 @@ class AutoInt(BaseModel):
         
         # If embeddings have different dimensions, project them to att_embedding_dim
         self.need_projection = not all(f.embedding_dim == att_embedding_dim for f in self.interaction_features)
-        
+        self.projection_layers = None
         if self.need_projection:
             self.projection_layers = nn.ModuleList([
                 nn.Linear(f.embedding_dim, att_embedding_dim, bias=False) 
@@ -116,17 +116,17 @@ class AutoInt(BaseModel):
         )
 
     def forward(self, x):
-        # Get embeddings: [B, num_fields, embedding_dim]
-        embeddings = self.embedding(x=x, features=self.interaction_features, squeeze_dim=False)
-        
-        # Project embeddings if needed
-        if self.need_projection:
-            projected_embeddings = []
-            for i, proj_layer in enumerate(self.projection_layers):
-                # embeddings[:, i, :] has shape [B, original_embedding_dim]
-                projected = proj_layer(embeddings[:, i, :])  # [B, att_embedding_dim]
-                projected_embeddings.append(projected.unsqueeze(1))  # [B, 1, att_embedding_dim]
-            embeddings = torch.cat(projected_embeddings, dim=1)  # [B, num_fields, att_embedding_dim]
+        # Get embeddings field-by-field so mixed dimensions can be projected safely
+        field_embeddings = []
+        if len(self.interaction_features) == 0:
+            raise ValueError("AutoInt requires at least one sparse or sequence feature for interactions.")
+        for idx, feature in enumerate(self.interaction_features):
+            feature_emb = self.embedding(x=x, features=[feature], squeeze_dim=False)
+            feature_emb = feature_emb.squeeze(1)  # [B, embedding_dim]
+            if self.need_projection and self.projection_layers is not None:
+                feature_emb = self.projection_layers[idx](feature_emb)
+            field_embeddings.append(feature_emb.unsqueeze(1))  # [B, 1, att_embedding_dim or original_dim]
+        embeddings = torch.cat(field_embeddings, dim=1)
         
         # Apply multi-head self-attention layers
         attention_output = embeddings

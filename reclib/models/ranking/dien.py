@@ -83,6 +83,9 @@ class DIEN(BaseModel):
         self.embedding = EmbeddingLayer(features=self.all_features)
         
         behavior_emb_dim = self.behavior_feature.embedding_dim
+        self.candidate_proj = None
+        if self.candidate_feature is not None and self.candidate_feature.embedding_dim != gru_hidden_size:
+            self.candidate_proj = nn.Linear(self.candidate_feature.embedding_dim, gru_hidden_size)
         
         # Interest Extractor Layer (GRU)
         self.interest_extractor = DynamicGRU(
@@ -118,7 +121,7 @@ class DIEN(BaseModel):
         # Register regularization weights
         self._register_regularization_weights(
             embedding_attr='embedding',
-            include_modules=['interest_extractor', 'interest_evolution', 'attention_layer', 'mlp']
+            include_modules=['interest_extractor', 'interest_evolution', 'attention_layer', 'mlp', 'candidate_proj']
         )
 
         self.compile(
@@ -154,15 +157,9 @@ class DIEN(BaseModel):
         # Step 2: Compute attention scores for each time step
         batch_size, seq_len, hidden_size = interest_states.shape
         
-        # Expand candidate for each time step
-        candidate_expanded = candidate_emb.unsqueeze(1).expand(-1, seq_len, -1)  # [B, seq_len, emb_dim]
-        
-        # We need to adapt dimensions if candidate_emb and interest_states have different dims
-        if candidate_emb.shape[-1] != hidden_size:
-            # Project candidate to hidden_size
-            if not hasattr(self, 'candidate_proj'):
-                self.candidate_proj = nn.Linear(candidate_emb.shape[-1], hidden_size).to(self.device)
-            candidate_for_attention = self.candidate_proj(candidate_emb)  # [B, hidden_size]
+        # Project candidate to hidden_size if necessary (defined in __init__)
+        if self.candidate_proj is not None:
+            candidate_for_attention = self.candidate_proj(candidate_emb)
         else:
             candidate_for_attention = candidate_emb
         
