@@ -23,11 +23,6 @@ def get_auto_embedding_dim(num_classes: int) -> int:
 def get_task_type(model) -> str:
     return model.task_type
 
-
-
-
-
-
 def get_initializer_fn(init_type='normal', activation='linear', param=None):
     param = param or {}
 
