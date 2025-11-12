@@ -7,82 +7,26 @@
 ![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)
 ![Version](https://img.shields.io/badge/Version-0.0.1-orange.svg)
 
-**统一、高效、可扩展的推荐系统深度学习框架**
+[English Version](README.md)
+
+**统一、高效、可扩展的推荐系统框架**
 
 </div>
 
----
 
 ## 简介
 
-RecLib 是一个基于 PyTorch 构建的现代推荐系统深度学习框架，专为研究人员和工程师设计。该框架提供清晰的模块化架构、丰富的模型库和灵活的特征工程能力，支持多种推荐场景。
+RecLib 是一个基于 PyTorch 构建的现代推荐系统框架，为研究人员与工程团队提供统一的建模、训练与评估体验。框架采用模块化设计，内置丰富的模型实现、数据处理工具和工程化训练组件，可快速覆盖多种推荐场景。
 
 ### 核心特性
 
-- **多任务场景支持**
-  - 排序模型（CTR预测）：DeepFM、DCN、xDeepFM、DIN、DIEN、WideDeep、AutoInt 等
-  - 召回模型：DSSM、MIND、YouTube DNN、SDM 等
-  - 多任务学习：MMOE、PLE、ESMM、ShareBottom
-  - 生成式推荐：TIGER、HSTU 等前沿模型
-
-- **灵活的特征工程**
-  - 统一的特征定义接口：DenseFeature、SparseFeature、SequenceFeature
-  - 自动化的 Embedding 层管理
-  - 支持多种特征交互方式
-
-- **常用数据集支持**
-  - MovieLens (100K, 1M, 25M): 电影评分数据
-  - Amazon Reviews (Books, Electronics, Movies): 商品评论数据
-  - Criteo: 广告点击率预测数据
-  - Avazu: 移动广告点击数据
-  - 一键下载、加载和预处理
-
-- **高效的训练流程**
-  - 内置 DataLoader，支持批处理优化
-  - 多种优化器和学习率调度策略
-  - Early Stopping 和模型检查点管理
-  - GPU/MPS 加速支持
-
-- **完善的评估体系**
-  - 分类指标：AUC、LogLoss、Accuracy 等
-  - 排序指标：NDCG、MRR、Recall 等
-  - 自定义指标扩展接口
-
-- **开发者友好**
-  - 彩色日志输出，清晰展示训练进度
-  - 模块化设计，易于扩展模型
-  - 丰富的示例代码和教程
+- **多场景推荐能力**：同时覆盖排序（CTR/CVR）、召回、多任务学习以及 TIGER、HSTU 等生成式推荐模型，持续扩充模型库。
+- **统一的特征工程与数据流水线**：提供 Dense/Sparse/Sequence 特征定义、可持久化的 DataProcessor、批处理优化的 RecDataLoader，贯穿“定义-处理-加载”全链路。
+- **高效训练与评估**：标准化训练引擎内置多种优化器、学习率调度、早停、模型检查点与彩色日志，开箱即用。
+- **内置数据集与基线**：一行代码即可下载 MovieLens、Amazon、Criteo、Avazu 等常用数据集，并提供预处理和切分工具。
+- **友好的工程体验**：模块化设计便于扩展，配套教程齐全，并支持 GPU/MPS 加速与可视化监控。
 
 ---
-
-## 框架架构
-
-### 目录结构
-
-```
-RecLib/
-├── reclib/
-│   ├── basic/              # 基础组件
-│   │   ├── model.py        # 模型基类
-│   │   ├── features.py     # 特征定义
-│   │   ├── layers.py       # 通用网络层
-│   │   ├── activation.py   # 激活函数
-│   │   ├── callback.py     # 回调函数
-│   │   └── loggers.py      # 日志工具
-│   ├── models/             # 模型库
-│   │   ├── ranking/        # 排序模型
-│   │   ├── match/          # 召回模型
-│   │   ├── multi_task/     # 多任务模型
-│   │   └── generative/     # 生成式模型
-│   ├── datasets/           # 数据集处理
-│   ├── metrics/            # 评估指标
-│   ├── loss/               # 损失函数
-│   ├── trainer/            # 训练器
-│   └── utils/              # 工具函数
-├── tutorials/              # 教程示例
-├── tests/                  # 单元测试
-└── docs/                   # 文档
-```
 
 ### 架构图
 
@@ -129,54 +73,6 @@ RecLib/
 
 ## 快速开始
 
-### 安装
-
-RecLib 支持两种安装方式：**UV（推荐）** 和传统的 pip 方式。
-
-#### 方法一：使用 UV（推荐）
-
-UV 是一个快速、现代的 Python 包管理器，提供更好的依赖解析和更快的安装速度。
-
-```bash
-# 1. 克隆仓库
-git clone https://github.com/zerolovesea/RecLib.git
-cd RecLib
-
-# 2. 安装 UV（如果尚未安装）
-pip install uv
-
-# 3. 同步依赖并创建虚拟环境
-python -m uv sync
-
-# 这将会：
-# - 创建一个 .venv 虚拟环境
-# - 从 pyproject.toml 安装所有依赖
-# - 以开发模式设置项目
-
-# 4. 激活虚拟环境
-source .venv/bin/activate  # macOS/Linux
-# 或
-.venv\Scripts\activate     # Windows
-
-# 5. （可选）安装开发依赖
-python -m uv sync --extra dev
-# 这包括 pytest、jupyter、matplotlib 和其他开发工具
-```
-
-#### 方法二：使用 pip
-
-```bash
-# 克隆仓库
-git clone https://github.com/zerolovesea/RecLib.git
-cd RecLib
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 单元测试（可选）
-pip install -r test_requirements.txt
-```
-
 ### 环境要求
 
 - Python >= 3.10
@@ -185,120 +81,211 @@ pip install -r test_requirements.txt
 - scikit-learn >= 1.3.0
 - numpy >= 1.24.0
 
+### 安装
+
+RecLib 提供两种主流的安装方式：**UV（推荐）** 与传统 pip/source 安装。
+
+#### 方法一：使用 UV（推荐）
+
+UV 是一款高速、现代化的 Python 包管理器，能够带来更快的依赖解析与安装体验。
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/zerolovesea/RecLib.git
+cd RecLib
+
+# 2. 安装 UV（若尚未安装）
+pip install uv
+
+# 3. 同步依赖并创建虚拟环境
+python -m uv sync
+# - 创建 .venv 虚拟环境
+# - 从 pyproject.toml 安装所有依赖
+# - 以开发模式安装项目
+
+# 4. 激活虚拟环境
+source .venv/bin/activate  # macOS/Linux
+# 或
+.venv\Scripts\activate     # Windows
+
+# 5.（可选）安装开发依赖
+python -m uv sync --extra dev
+```
+
+完成后可以运行测试验证环境：
+
+```bash
+python -m uv run pytest test/ -v
+```
+
+#### 方法二：使用 pip/source 安装
+
+```bash
+# 克隆仓库
+git clone https://github.com/zerolovesea/RecLib.git
+cd RecLib
+
+# 以可编辑模式安装
+pip install -e .
+
+# 或仅安装依赖
+pip install -r requirements.txt
+
+# （可选）安装测试/开发依赖
+pip install -r test_requirements.txt
+```
+
+完成后运行 `pytest test/ -v` 或 `python -m pytest` 即可执行单元测试。
+
 ### 10分钟教程
 
-以下是使用 DeepFM 进行 CTR 预测的快速示例：
+以下示例展示了如何使用 DeepFM 进行 CTR 预测，并串联起「特征定义 → 数据处理 → 数据加载 → 模型训练」的完整流程：
 
 ```python
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
 
 from reclib.models.ranking.deepfm import DeepFM
-from reclib.basic.features import DenseFeature, SparseFeature
+from reclib.basic.dataloader import RecDataLoader
+from reclib.data.preprocessor import DataProcessor
+from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
-# 1. 准备数据
+# 1. 准备原始数据
 df = pd.read_csv('your_data.csv')
 target = 'label'
 
-# 特征列
 dense_cols = ['age', 'income']
 sparse_cols = ['gender', 'city', 'category']
+sequence_cols = ['his_click_item']
 
-# 编码稀疏特征
-for col in sparse_cols:
-    lbe = LabelEncoder()
-    df[col] = lbe.fit_transform(df[col].astype(str))
+# 2. 构建特征处理器
+processor = DataProcessor()
 
-# 2. 定义特征
-dense_features = [DenseFeature(name) for name in dense_cols]
+for feat in dense_cols:
+    processor.add_numeric_feature(feat, scaler='standard')
+for feat in sparse_cols:
+    processor.add_sparse_feature(feat, encode_method='hash', hash_size=1000)  # 也支持 label encoding
+for feat in sequence_cols:
+    processor.add_sequence_feature(
+        feat,
+        encode_method='hash',
+        hash_size=5000,
+        max_len=20,
+        pad_value=0,
+        truncate='post',
+        separator=','
+    )
+
+# 3. 拟合并持久化预处理流程
+processor.fit(df)
+processor.save('./processor/example_deepfm_processor.pkl')
+df_transformed = processor.transform(df, return_dict=True)
+
+# 4. 初始化特征描述
+dense_features = [DenseFeature(feat) for feat in dense_cols]
+vocab_sizes = processor.get_vocab_sizes()
+
 sparse_features = [
-    SparseFeature(name, vocab_size=df[name].nunique(), embedding_dim=16)
-    for name in sparse_cols
+    SparseFeature(feat, vocab_size=vocab_sizes.get(feat, 1000), embedding_dim=10)
+    for feat in sparse_cols
+]
+sequence_features = [
+    SequenceFeature(feat, vocab_size=vocab_sizes.get(feat, 5000), max_len=50, embedding_dim=10, padding_idx=0, combiner='mean')
+    for feat in sequence_cols
 ]
 
-# 3. 构建模型
+# 5. 构建 DataLoader（可选，也可直接传入 DataFrame/Dict）
+dataloader = RecDataLoader(
+    dense_features=dense_features,
+    sparse_features=sparse_features,
+    sequence_features=sequence_features,
+    target=target,
+)
+
+# 6. 初始化模型与超参数
 model = DeepFM(
     dense_features=dense_features,
     sparse_features=sparse_features,
-    mlp_params={"dims": [256, 128], "activation": "relu", "dropout": 0.3},
-    targets=[target],
+    sequence_features=sequence_features,
+    mlp_params={"dims": [256, 128], "activation": "relu", "dropout": 0.5},
+    target=target,
+    device='mps',
+    model_id="deepfm_with_processor",
+    embedding_l1_reg=1e-6,
+    dense_l1_reg=1e-5,
+    embedding_l2_reg=1e-5,
+    dense_l2_reg=1e-4,
+)
+
+# 7. 配置训练参数
+model.compile(
     optimizer="adam",
     optimizer_params={"lr": 1e-3, "weight_decay": 1e-5},
-    device='cuda',  # 或 'mps'（Mac）/ 'cpu'
-    model_id="deepfm_exp"
+    loss="bce"
 )
 
-# 4. 训练模型
-train_df, valid_df = train_test_split(df, test_size=0.2, random_state=2024)
-
+# 8. 开始训练
 model.fit(
-    train_data=train_df,
-    valid_data=valid_df,
-    metrics=['auc', 'logloss'],
+    train_data=df_transformed,  # 支持 dict/DataFrame/RecDataLoader
+    metrics=['auc', 'recall', 'precision'],
     epochs=10,
     batch_size=512,
-    shuffle=True
+    shuffle=True,
+    verbose=1
 )
 
-# 5. 进行预测
-predictions = model.predict(valid_df, batch_size=512)
+# 9. 推理
+preds = model.predict(df_transformed, batch_size=512)
 ```
 
-### 使用 UV 运行
+### 使用 UV 运行脚本
 
-如果使用 UV 安装了 RecLib，可以直接运行脚本而无需激活虚拟环境：
+借助 UV 可以在无需手动激活虚拟环境的情况下直接运行脚本：
 
 ```bash
-# 运行 Python 脚本
+# 运行示例脚本
 python -m uv run python tutorials/example_deepfm.py
 
-# 运行测试
+# 运行单元测试
 python -m uv run pytest test/ -v
 
-# 运行 Jupyter notebook
+# 运行 Jupyter Notebook
 python -m uv run jupyter notebook
-
-# 或者先激活虚拟环境
-source .venv/bin/activate
-python tutorials/example_deepfm.py
-pytest test/ -v
 ```
 
 ### 更多示例
 
-查看 `tutorials/` 目录获取更多示例：
+`tutorials/` 目录提供了覆盖排序、召回、多任务、数据处理等场景的示例：
 
 - `example_deepfm.py` - 完整的 DeepFM 排序模型示例
 - `example_ranking_din.py` - DIN 深度兴趣网络示例
 - `example_match_dssm.py` - DSSM 召回模型示例
 - `example_multitask.py` - 多任务学习示例
-- `example_datasets.py` - 数据集下载和使用示例
-- `example_dataloader.py` - 数据加载器使用示例
-- `example_dataloader_integration.py` - 数据加载器集成示例
+- `example_datasets.py` - 数据集下载与使用示例
+- `example_dataloader.py` - DataLoader 使用示例
+- `example_dataloader_integration.py` - DataLoader 与训练流程集成示例
 - `data_generator.py` - 测试数据生成工具
 
-### 数据集使用
+### 数据集示例
 
-RecLib 提供常用推荐数据集的统一接口：
+RecLib 提供统一的数据集接口，支持一键下载与使用：
 
 ```python
 from reclib.datasets import get_dataset, list_datasets
 
-# 查看所有可用数据集
+# 列出所有可用数据集
 print(list_datasets())
-# ['movielens-100k', 'movielens-1m', 'movielens-25m', 
+# ['movielens-100k', 'movielens-1m', 'movielens-25m',
 #  'criteo', 'amazon-books', 'amazon-electronics', 'avazu']
 
-# 下载并加载 MovieLens 100K 数据集
+# 下载并加载 MovieLens 100K
 dataset = get_dataset("movielens-100k", root="./data", download=True)
-dataset.info()  # 查看数据集信息
+dataset.info()
 
-# 加载数据(包含用户和电影特征)
+# 载入带有用户/物品特征的数据
 df = dataset.load(include_features=True)
 print(df.head())
 
-# 数据预处理
+# 数据预处理示例
 from reclib.datasets.preprocessing import DataPreprocessor
 
 preprocessor = DataPreprocessor()
@@ -306,8 +293,6 @@ df = preprocessor.create_binary_labels(df, rating_col='rating', threshold=4.0)
 df = preprocessor.encode_categorical(df, ['user_id', 'item_id', 'gender'])
 train_df, valid_df, test_df = preprocessor.split_by_ratio(df, ratios=(0.7, 0.15, 0.15))
 ```
-
-详细文档请查看 [reclib/datasets/README.md](reclib/datasets/README.md)
 
 ---
 
@@ -352,45 +337,43 @@ train_df, valid_df, test_df = preprocessor.split_by_ratio(df, ratios=(0.7, 0.15,
 
 ---
 
-## 核心功能
+## 核心能力
 
 ### 特征定义
 
-RecLib 提供三种类型的特征：
+RecLib 提供 Dense、Sparse、Sequence 三类特征描述，可统一管理 Embedding 与特征交互配置：
 
 ```python
 from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
-# 稠密特征 - 用于连续数值
 dense_feat = DenseFeature(
     feature_name='age',
     feature_dim=1
 )
 
-# 稀疏特征 - 用于类别变量
 sparse_feat = SparseFeature(
     feature_name='category',
     vocab_size=100,
     embedding_dim=16,
-    embedding_name='category_emb'  # 可选，用于参数共享
+    embedding_name='category_emb'
 )
 
-# 序列特征 - 用于用户行为序列
 sequence_feat = SequenceFeature(
     feature_name='click_history',
     vocab_size=1000,
     embedding_dim=32,
-    pooling='mean',  # 'mean', 'sum', 'max'
+    pooling='mean',
     max_length=50
 )
 ```
 
 ### 自定义模型
 
-继承 `BaseModel` 创建新模型：
+通过继承 `BaseModel` 可以快速扩展新模型，并复用训练、日志、评估等基础设施：
 
 ```python
 from reclib.basic.model import BaseModel
+import torch
 import torch.nn as nn
 
 class YourModel(BaseModel):
@@ -398,9 +381,9 @@ class YourModel(BaseModel):
     def model_name(self):
         return "YourModel"
     
-    @property  
+    @property
     def task_type(self):
-        return "binary"  # 或 "regression"、"multi_class"
+        return "binary"
     
     def __init__(self, dense_features, sparse_features, **kwargs):
         super().__init__(
@@ -409,7 +392,6 @@ class YourModel(BaseModel):
             **kwargs
         )
         
-        # 定义模型结构
         self.dnn = nn.Sequential(
             nn.Linear(self.input_dim, 256),
             nn.ReLU(),
@@ -418,10 +400,8 @@ class YourModel(BaseModel):
         )
     
     def forward(self, x):
-        # 实现前向传播
         dense_input = x['dense']
         sparse_input = self.embedding(x['sparse'])
-        
         combined = torch.cat([dense_input, sparse_input], dim=-1)
         output = self.dnn(combined)
         return output
@@ -430,22 +410,19 @@ class YourModel(BaseModel):
 ### 训练与评估
 
 ```python
-# 训练
 model.fit(
     train_data=train_df,
     valid_data=valid_df,
-    metrics=['auc', 'logloss'],  # 多指标评估
+    metrics=['auc', 'logloss'],
     epochs=20,
     batch_size=1024,
     shuffle=True,
-    verbose=1,  # 日志详细程度
-    early_stop_patience=5  # 早停
+    verbose=1,
+    early_stop_patience=5
 )
 
-# 预测
 predictions = model.predict(test_df, batch_size=1024)
 
-# 评估
 from sklearn.metrics import roc_auc_score
 auc = roc_auc_score(test_df['label'], predictions)
 print(f"Test AUC: {auc:.6f}")
@@ -455,7 +432,7 @@ print(f"Test AUC: {auc:.6f}")
 
 ## 贡献指南
 
-我们欢迎各种形式的贡献！
+我们欢迎任何形式的贡献！
 
 ### 如何贡献
 
@@ -465,11 +442,13 @@ print(f"Test AUC: {auc:.6f}")
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 创建 Pull Request
 
+> 在提交 PR 之前，请运行 `pytest test/ -v` 或 `python -m pytest` 确保所有测试通过。
+
 ### 代码规范
 
 - 遵循 PEP 8 Python 代码风格
-- 为新功能添加单元测试
-- 更新相关文档
+- 为新增功能补充单元测试
+- 同步更新相关文档
 
 ### 报告错误
 
