@@ -30,6 +30,13 @@ RecLib 是一个基于 PyTorch 构建的现代推荐系统深度学习框架，�
   - 自动化的 Embedding 层管理
   - 支持多种特征交互方式
 
+- **常用数据集支持**
+  - MovieLens (100K, 1M, 25M): 电影评分数据
+  - Amazon Reviews (Books, Electronics, Movies): 商品评论数据
+  - Criteo: 广告点击率预测数据
+  - Avazu: 移动广告点击数据
+  - 一键下载、加载和预处理
+
 - **高效的训练流程**
   - 内置 DataLoader，支持批处理优化
   - 多种优化器和学习率调度策略
@@ -266,9 +273,41 @@ pytest test/ -v
 - `example_ranking_din.py` - DIN 深度兴趣网络示例
 - `example_match_dssm.py` - DSSM 召回模型示例
 - `example_multitask.py` - 多任务学习示例
+- `example_datasets.py` - 数据集下载和使用示例
 - `example_dataloader.py` - 数据加载器使用示例
 - `example_dataloader_integration.py` - 数据加载器集成示例
 - `data_generator.py` - 测试数据生成工具
+
+### 数据集使用
+
+RecLib 提供常用推荐数据集的统一接口：
+
+```python
+from reclib.datasets import get_dataset, list_datasets
+
+# 查看所有可用数据集
+print(list_datasets())
+# ['movielens-100k', 'movielens-1m', 'movielens-25m', 
+#  'criteo', 'amazon-books', 'amazon-electronics', 'avazu']
+
+# 下载并加载 MovieLens 100K 数据集
+dataset = get_dataset("movielens-100k", root="./data", download=True)
+dataset.info()  # 查看数据集信息
+
+# 加载数据(包含用户和电影特征)
+df = dataset.load(include_features=True)
+print(df.head())
+
+# 数据预处理
+from reclib.datasets.preprocessing import DataPreprocessor
+
+preprocessor = DataPreprocessor()
+df = preprocessor.create_binary_labels(df, rating_col='rating', threshold=4.0)
+df = preprocessor.encode_categorical(df, ['user_id', 'item_id', 'gender'])
+train_df, valid_df, test_df = preprocessor.split_by_ratio(df, ratios=(0.7, 0.15, 0.15))
+```
+
+详细文档请查看 [reclib/datasets/README.md](reclib/datasets/README.md)
 
 ---
 

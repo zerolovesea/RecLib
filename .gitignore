@@ -85,6 +85,11 @@ checkpoints/
 data/raw/
 data/processed/
 
+# Downloaded datasets
+movielens-100k/
+amazon-books/
+criteo/
+
 # Test coverage
 .coverage
 .coverage.*
@@ -111,3 +116,6 @@ dmypy.json
 # local test files
 local_deepfm.py
 local_mmoe.py
+
+# DataProcessor saved files
+processor/

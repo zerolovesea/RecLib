@@ -2,16 +2,19 @@
 
 <div align="center">
 
+
+
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
 ![PyTorch](https://img.shields.io/badge/PyTorch-1.10+-ee4c2c.svg)
 ![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)
 ![Version](https://img.shields.io/badge/Version-0.0.1-orange.svg)
 
+[中文版](README_zh.md)
+
 **A Unified, Efficient, and Extensible Deep Learning Framework for Recommender Systems**
 
 </div>
 
----
 
 ## Introduction
 
@@ -30,6 +33,13 @@ RecLib is a modern deep learning framework for recommender systems built on PyTo
   - Automated embedding layer management
   - Support for various feature interaction methods
 
+- **Common Dataset Support**
+  - MovieLens (100K, 1M, 25M): Movie rating datasets
+  - Amazon Reviews (Books, Electronics, Movies): Product review datasets
+  - Criteo: Display advertising click-through rate dataset
+  - Avazu: Mobile advertising click dataset
+  - One-click download, loading, and preprocessing
+
 - **Efficient Training Pipeline**
   - Built-in DataLoader with batch processing optimization
   - Multiple optimizers and learning rate scheduling strategies
@@ -47,35 +57,6 @@ RecLib is a modern deep learning framework for recommender systems built on PyTo
   - Rich example code and tutorials
 
 ---
-
-## Framework Architecture
-
-### Directory Structure
-
-```
-RecLib/
-├── reclib/
-│   ├── basic/              # Basic Components
-│   │   ├── model.py        # Base Model Class
-│   │   ├── features.py     # Feature Definitions
-│   │   ├── layers.py       # Common Network Layers
-│   │   ├── activation.py   # Activation Functions
-│   │   ├── callback.py     # Callback Functions
-│   │   └── loggers.py      # Logging Utilities
-│   ├── models/             # Model Zoo
-│   │   ├── ranking/        # Ranking Models
-│   │   ├── match/          # Matching Models
-│   │   ├── multi_task/     # Multi-Task Models
-│   │   └── generative/     # Generative Models
-│   ├── datasets/           # Dataset Processing
-│   ├── metrics/            # Evaluation Metrics
-│   ├── loss/               # Loss Functions
-│   ├── trainer/            # Trainer
-│   └── utils/              # Utility Functions
-├── tutorials/              # Tutorial Examples
-├── tests/                  # Unit Tests
-└── docs/                   # Documentation
-```
 
 ### Architecture Diagram
 
@@ -266,9 +247,41 @@ Check the `tutorials/` directory for more examples:
 - `example_ranking_din.py` - DIN (Deep Interest Network) example
 - `example_match_dssm.py` - DSSM matching model example
 - `example_multitask.py` - Multi-task learning example
+- `example_datasets.py` - Dataset download and usage examples
 - `example_dataloader.py` - DataLoader usage example
 - `example_dataloader_integration.py` - DataLoader integration example
 - `data_generator.py` - Test data generation utility
+
+### Using Datasets
+
+RecLib provides a unified interface for common recommendation datasets:
+
+```python
+from reclib.datasets import get_dataset, list_datasets
+
+# List all available datasets
+print(list_datasets())
+# ['movielens-100k', 'movielens-1m', 'movielens-25m', 
+#  'criteo', 'amazon-books', 'amazon-electronics', 'avazu']
+
+# Download and load MovieLens 100K dataset
+dataset = get_dataset("movielens-100k", root="./data", download=True)
+dataset.info()  # View dataset information
+
+# Load data (with user and movie features)
+df = dataset.load(include_features=True)
+print(df.head())
+
+# Data preprocessing
+from reclib.datasets.preprocessing import DataPreprocessor
+
+preprocessor = DataPreprocessor()
+df = preprocessor.create_binary_labels(df, rating_col='rating', threshold=4.0)
+df = preprocessor.encode_categorical(df, ['user_id', 'item_id', 'gender'])
+train_df, valid_df, test_df = preprocessor.split_by_ratio(df, ratios=(0.7, 0.15, 0.15))
+```
+
+For detailed documentation, see [reclib/datasets/README.md](reclib/datasets/README.md)
 
 ---
 
