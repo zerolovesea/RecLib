@@ -1,39 +1,40 @@
 import os
 import glob
 import torch
+import logging
 import numpy as np
 import pandas as pd
-from typing import Iterator, Literal, Union
+
 from pathlib import Path
+from typing import Iterator, Literal, Union, Optional
 from torch.utils.data import DataLoader, TensorDataset, IterableDataset
 
+from reclib.data.preprocessor import DataProcessor
+from reclib.data.utils import get_column_data, collate_fn
+
 from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from reclib.basic.loggers import colorize
 
 
 class FileDataset(IterableDataset):
     """
     Iterable dataset for reading multiple files in batches.
     Supports CSV and Parquet files with chunk-based reading.
+
+    用于处理RecDataLoader中传入文件路径的场景，支持CSV和Parquet格式的文件分块读取
+    迭代器直接返回tensor tuple
     """
     
     def __init__(self, 
-                 file_paths: list[str],
-                 dense_features: list[DenseFeature],
-                 sparse_features: list[SparseFeature],
-                 sequence_features: list[SequenceFeature],
-                 target_columns: list[str],
+                 file_paths: list[str],                      # file paths to read, containing CSV or Parquet files
+                 dense_features: list[DenseFeature],         # dense feature definitions
+                 sparse_features: list[SparseFeature],       # sparse feature definitions
+                 sequence_features: list[SequenceFeature],   # sequence feature definitions
+                 target_columns: list[str],                   # target column names
                  chunk_size: int = 10000,
-                 file_type: Literal['csv', 'parquet'] = 'csv'):
-        """
-        Args:
-            file_paths: List of file paths to read
-            dense_features: List of dense feature definitions
-            sparse_features: List of sparse feature definitions
-            sequence_features: List of sequence feature definitions
-            target_columns: List of target column names
-            chunk_size: Number of rows per chunk for CSV files
-            file_type: Type of files ('csv' or 'parquet')
-        """
+                 file_type: Literal['csv', 'parquet'] = 'csv',
+                 processor: Optional['DataProcessor'] = None): # optional DataProcessor for transformation
+
         self.file_paths = file_paths
         self.dense_features = dense_features
         self.sparse_features = sparse_features
@@ -41,14 +42,12 @@ class FileDataset(IterableDataset):
         self.target_columns = target_columns
         self.chunk_size = chunk_size
         self.file_type = file_type
+        self.processor = processor
         
         self.all_features = dense_features + sparse_features + sequence_features
         self.feature_names = [f.name for f in self.all_features]
     
     def __iter__(self) -> Iterator[tuple]:
-        """
-        Iterate through all files and yield batches of tensors.
-        """
         for file_path in self.file_paths:
             if self.file_type == 'csv':
                 yield from self._read_csv_chunks(file_path)
@@ -56,7 +55,6 @@ class FileDataset(IterableDataset):
                 yield from self._read_parquet_chunks(file_path)
     
     def _read_csv_chunks(self, file_path: str) -> Iterator[tuple]:
-        """Read CSV file in chunks and convert to tensors."""
         chunk_iterator = pd.read_csv(file_path, chunksize=self.chunk_size)
         
         for chunk in chunk_iterator:
@@ -65,11 +63,8 @@ class FileDataset(IterableDataset):
                 yield tensors
     
     def _read_parquet_chunks(self, file_path: str) -> Iterator[tuple]:
-        """Read Parquet file in chunks and convert to tensors."""
-        # Read parquet file
         df = pd.read_parquet(file_path)
         
-        # Split into chunks
         num_chunks = (len(df) + self.chunk_size - 1) // self.chunk_size
         
         for i in range(num_chunks):
@@ -82,26 +77,59 @@ class FileDataset(IterableDataset):
                 yield tensors
     
     def _dataframe_to_tensors(self, df: pd.DataFrame) -> tuple | None:
-        """Convert DataFrame chunk to tuple of tensors."""
+        if self.processor is not None:
+            if not self.processor.is_fitted:
+                raise ValueError("DataProcessor must be fitted before using in streaming mode")
+            transformed_data = self.processor.transform(df, return_dict=True)
+        else:
+            transformed_data = df
+        
         tensors = []
         
         # Process features
         for feature in self.all_features:
-            if feature.name not in df.columns:
-                continue
+            if self.processor is not None:
+                column_data = transformed_data.get(feature.name)
+                if column_data is None:
+                    continue
+            else:
+                # Get data from original dataframe
+                if feature.name not in df.columns:
+                    logging.warning(colorize(f"Feature column '{feature.name}' not found in DataFrame", "yellow"))
+                    continue
+                column_data = df[feature.name].values
             
-            column_data = df[feature.name].values
-            
-            # Handle sequence features (might be list of lists)
+            # Handle sequence features: convert to 2D array of shape (batch_size, seq_length)
             if isinstance(feature, SequenceFeature):
-                if column_data.dtype == object:
-                    column_data = np.array([
-                        np.array(seq, dtype=np.int64) if not isinstance(seq, np.ndarray) else seq 
-                        for seq in column_data
-                    ])
-                    if column_data.ndim == 1:
-                        column_data = np.vstack(list(column_data))  # type: ignore
-                tensor = torch.from_numpy(np.asarray(column_data, dtype=np.int64))
+                if isinstance(column_data, np.ndarray) and column_data.dtype == object:
+                    try:
+                        column_data = np.stack([np.asarray(seq, dtype=np.int64) for seq in column_data])  # type: ignore
+                    except (ValueError, TypeError) as e:
+                        # Fallback: handle variable-length sequences by padding
+                        sequences = []
+                        max_len = feature.max_len if hasattr(feature, 'max_len') else 0
+                        for seq in column_data:
+                            if isinstance(seq, (list, tuple, np.ndarray)):
+                                seq_arr = np.asarray(seq, dtype=np.int64)
+                            else:
+                                seq_arr = np.array([], dtype=np.int64)
+                            sequences.append(seq_arr)
+                        
+                        # Pad sequences to same length
+                        if max_len == 0:
+                            max_len = max(len(seq) for seq in sequences) if sequences else 1
+                        
+                        padded = []
+                        for seq in sequences:
+                            if len(seq) > max_len:
+                                padded.append(seq[:max_len])
+                            else:
+                                pad_width = max_len - len(seq)
+                                padded.append(np.pad(seq, (0, pad_width), constant_values=0))
+                        column_data = np.stack(padded)
+                else:
+                    column_data = np.asarray(column_data, dtype=np.int64)
+                tensor = torch.from_numpy(column_data)
             elif isinstance(feature, DenseFeature):
                 tensor = torch.from_numpy(np.asarray(column_data, dtype=np.float32))
             else:  # SparseFeature
@@ -112,10 +140,15 @@ class FileDataset(IterableDataset):
         # Process targets
         target_tensors = []
         for target_name in self.target_columns:
-            if target_name not in df.columns:
-                continue
+            if self.processor is not None:
+                target_data = transformed_data.get(target_name)
+                if target_data is None: 
+                    continue
+            else:
+                if target_name not in df.columns:
+                    continue
+                target_data = df[target_name].values
             
-            target_data = df[target_name].values
             target_tensor = torch.from_numpy(np.asarray(target_data, dtype=np.float32))
             
             if target_tensor.dim() == 1:
@@ -141,49 +174,42 @@ class FileDataset(IterableDataset):
         return tuple(tensors)
 
 
-def collate_fn(batch):
-    """
-    Custom collate function for batching tuples of tensors.
-    Each element in batch is a tuple of tensors from FileDataset.
-    """
-    if not batch:
-        return tuple()
-    
-    # batch is a list of tuples, each tuple contains multiple tensors
-    # We need to stack tensors at each position
-    num_tensors = len(batch[0])
-    result = []
-    
-    for i in range(num_tensors):
-        tensor_list = [item[i] for item in batch]
-        stacked = torch.cat(tensor_list, dim=0)
-        result.append(stacked)
-    
-    return tuple(result)
-
-
 class RecDataLoader:
     """
     Custom DataLoader for recommendation models.
     Supports multiple input formats: dict, DataFrame, CSV files, Parquet files, and directories.
+    Optionally supports DataProcessor for on-the-fly data transformation.
+
+    用于推荐模型的自定义DataLoader，支持多种输入格式：字典、DataFrame、CSV文件、Parquet文件和目录
+    
+    Examples:
+        >>> # 创建RecDataLoader
+        >>> dataloader = RecDataLoader(
+        >>>     dense_features=dense_features,
+        >>>     sparse_features=sparse_features,
+        >>>     sequence_features=sequence_features,
+        >>>     target_columns=target_columns,
+        >>>     processor=processor
+        >>> )
     """
     
     def __init__(self,
                  dense_features: list[DenseFeature] | None = None,
                  sparse_features: list[SparseFeature] | None = None,
                  sequence_features: list[SequenceFeature] | None = None,
-                 target_columns: list[str] | None = None):
-        """
-        Args:
-            dense_features: List of dense feature definitions
-            sparse_features: List of sparse feature definitions
-            sequence_features: List of sequence feature definitions
-            target_columns: List of target column names
-        """
+                 target: list[str] | None | str = None,
+                 processor: Optional['DataProcessor'] = None):
+
         self.dense_features = dense_features if dense_features else []
         self.sparse_features = sparse_features if sparse_features else []
         self.sequence_features = sequence_features if sequence_features else []
-        self.target_columns = target_columns if target_columns else []
+        if isinstance(target, str):
+            self.target_columns = [target]
+        elif isinstance(target, list):
+            self.target_columns = target
+        else:
+            self.target_columns = []
+        self.processor = processor
         
         self.all_features = self.dense_features + self.sparse_features + self.sequence_features
     
@@ -194,68 +220,82 @@ class RecDataLoader:
                          load_full: bool = True,
                          chunk_size: int = 10000) -> DataLoader:
         """
-        Create DataLoader from various input formats.
-        
-        Args:
-            data: Input data in various formats:
-                  - dict: Dictionary of arrays/lists
-                  - pd.DataFrame: Pandas DataFrame
-                  - str: File path (CSV/Parquet) or directory path
-                  - DataLoader: Return as-is
-            batch_size: Batch size for DataLoader
-            shuffle: Whether to shuffle data (only for in-memory loading)
-            load_full: If True, load entire dataset into memory; 
-                      If False, use streaming/chunked reading
-            chunk_size: Chunk size for reading large files (used when load_full=False)
-        
-        Returns:
-            DataLoader instance
+        Create DataLoader from various data sources.
+
+        根据不同情况创建DataLoader，支持传入字典、DataFrame、文件路径和DataLoader
         """
-        # If already a DataLoader, return as-is
         if isinstance(data, DataLoader):
             return data
         
-        # Handle file path or directory
-        if isinstance(data, str):
+        if isinstance(data, (str, os.PathLike)):
             return self._create_from_path(data, batch_size, shuffle, load_full, chunk_size)
         
-        # Handle dict or DataFrame
         if isinstance(data, (dict, pd.DataFrame)):
-            if load_full:
-                return self._create_from_memory(data, batch_size, shuffle)
-            else:
-                # Convert to DataFrame first if dict
-                if isinstance(data, dict):
-                    data = pd.DataFrame(data)
-                return self._create_from_dataframe_chunks(data, batch_size, chunk_size)
-        
+            return self._create_from_memory(data, batch_size, shuffle)
+
         raise ValueError(f"Unsupported data type: {type(data)}")
     
     def _create_from_memory(self, 
                            data: Union[dict, pd.DataFrame],
                            batch_size: int,
                            shuffle: bool) -> DataLoader:
-        """Create DataLoader by loading full data into memory."""
+
+        if self.processor is not None:
+            if not self.processor.is_fitted:
+                raise ValueError("DataProcessor must be fitted before using in RecDataLoader")
+            data = self.processor.transform(data, return_dict=True)
+        
         tensors = []
         
         # Process features
         for feature in self.all_features:
-            column = self._get_column_data(data, feature.name)
+            column = get_column_data(data, feature.name)
             if column is None:
                 raise KeyError(f"Feature {feature.name} not found in provided data.")
-            
-            # Handle sequence features
+
             if isinstance(feature, SequenceFeature):
                 if isinstance(column, pd.Series):
                     column = column.values
-                if isinstance(column, np.ndarray) and column.dtype == object:
-                    column = np.array([
-                        np.array(seq, dtype=np.int64) if not isinstance(seq, np.ndarray) else seq 
-                        for seq in column
-                    ])
-                if isinstance(column, np.ndarray) and column.ndim == 1 and column.dtype == object:
-                    column = np.vstack([c if isinstance(c, np.ndarray) else np.array(c) for c in column])  # type: ignore
-                tensor = torch.from_numpy(np.asarray(column, dtype=np.int64))
+                
+                # Handle different input formats for sequence features
+                if isinstance(column, np.ndarray):
+                    # Check if elements are actually sequences (not just object dtype scalars)
+                    if column.dtype == object and len(column) > 0 and isinstance(column[0], (list, tuple, np.ndarray)):
+                        # Each element is a sequence (array/list), stack them into 2D array
+                        try:
+                            column = np.stack([np.asarray(seq, dtype=np.int64) for seq in column])  # type: ignore
+                        except (ValueError, TypeError) as e:
+                            # Fallback: handle variable-length sequences by padding
+                            sequences = []
+                            max_len = feature.max_len if hasattr(feature, 'max_len') else 0
+                            for seq in column:
+                                if isinstance(seq, (list, tuple, np.ndarray)):
+                                    seq_arr = np.asarray(seq, dtype=np.int64)
+                                else:
+                                    seq_arr = np.array([], dtype=np.int64)
+                                sequences.append(seq_arr)
+                            
+                            # Pad sequences to same length
+                            if max_len == 0:
+                                max_len = max(len(seq) for seq in sequences) if sequences else 1
+                            
+                            padded = []
+                            for seq in sequences:
+                                if len(seq) > max_len:
+                                    padded.append(seq[:max_len])
+                                else:
+                                    pad_width = max_len - len(seq)
+                                    padded.append(np.pad(seq, (0, pad_width), constant_values=0))
+                            column = np.stack(padded)
+                    elif column.ndim == 1:
+                        # 1D array, need to reshape or handle appropriately
+                        # Assuming each element should be treated as a single-item sequence
+                        column = column.reshape(-1, 1)
+                    # else: already a 2D array
+                
+                column = np.asarray(column, dtype=np.int64)
+                tensor = torch.from_numpy(column)
+                
             elif isinstance(feature, DenseFeature):
                 tensor = torch.from_numpy(np.asarray(column, dtype=np.float32))
             else:  # SparseFeature
@@ -266,7 +306,7 @@ class RecDataLoader:
         # Process targets
         label_tensors = []
         for target_name in self.target_columns:
-            column = self._get_column_data(data, target_name)
+            column = get_column_data(data, target_name)
             if column is None:
                 continue
             
@@ -295,90 +335,18 @@ class RecDataLoader:
         dataset = TensorDataset(*tensors)
         return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
     
-    def _create_from_dataframe_chunks(self,
-                                     df: pd.DataFrame,
-                                     batch_size: int,
-                                     chunk_size: int) -> DataLoader:
-        """Create DataLoader from DataFrame with chunked reading."""
-        # For in-memory DataFrame, we'll split it into chunks
-        num_chunks = (len(df) + chunk_size - 1) // chunk_size
-        
-        def chunk_generator():
-            for i in range(num_chunks):
-                start_idx = i * chunk_size
-                end_idx = min((i + 1) * chunk_size, len(df))
-                chunk = df.iloc[start_idx:end_idx]
-                
-                # Convert chunk to tensors
-                tensors = []
-                
-                for feature in self.all_features:
-                    if feature.name not in chunk.columns:
-                        continue
-                    
-                    column_data = chunk[feature.name].values
-                    
-                    if isinstance(feature, SequenceFeature):
-                        if column_data.dtype == object:
-                            column_data = np.array([
-                                np.array(seq, dtype=np.int64) if not isinstance(seq, np.ndarray) else seq 
-                                for seq in column_data
-                            ])
-                            if column_data.ndim == 1:
-                                column_data = np.vstack(list(column_data))  # type: ignore
-                        tensor = torch.from_numpy(np.asarray(column_data, dtype=np.int64))
-                    elif isinstance(feature, DenseFeature):
-                        tensor = torch.from_numpy(np.asarray(column_data, dtype=np.float32))
-                    else:
-                        tensor = torch.from_numpy(np.asarray(column_data, dtype=np.int64))
-                    
-                    tensors.append(tensor)
-                
-                # Process targets
-                target_tensors = []
-                for target_name in self.target_columns:
-                    if target_name not in chunk.columns:
-                        continue
-                    
-                    target_data = chunk[target_name].values
-                    target_tensor = torch.from_numpy(np.asarray(target_data, dtype=np.float32))
-                    
-                    if target_tensor.dim() == 1:
-                        target_tensor = target_tensor.view(-1, 1)
-                    
-                    target_tensors.append(target_tensor)
-                
-                if target_tensors:
-                    if len(target_tensors) == 1 and target_tensors[0].shape[1] > 1:
-                        y_tensor = target_tensors[0]
-                    else:
-                        y_tensor = torch.cat(target_tensors, dim=1)
-                    
-                    if y_tensor.shape[1] == 1:
-                        y_tensor = y_tensor.squeeze(1)
-                    
-                    tensors.append(y_tensor)
-                
-                yield tuple(tensors)
-        
-        # Create iterable dataset from generator
-        class GeneratorDataset(IterableDataset):
-            def __init__(self, gen_func):
-                self.gen_func = gen_func
-            
-            def __iter__(self):
-                return self.gen_func()
-        
-        dataset = GeneratorDataset(chunk_generator)
-        return DataLoader(dataset, batch_size=batch_size, collate_fn=collate_fn)
-    
     def _create_from_path(self,
                          path: str,
                          batch_size: int,
                          shuffle: bool,
                          load_full: bool,
                          chunk_size: int) -> DataLoader:
-        """Create DataLoader from file path or directory."""
+        """
+        Create DataLoader from a file path, supporting CSV and Parquet formats, with options for full loading or streaming.
+
+        根据传入路径创建DataLoader，支持CSV和Parquet格式的文件或目录，可选择全量加载或生成器加载
+        """
+
         path_obj = Path(path)
         
         # Determine if it's a file or directory
@@ -405,34 +373,26 @@ class RecDataLoader:
         
         # Load full data into memory or use streaming
         if load_full:
-            return self._load_files_full(file_paths, file_type, batch_size, shuffle)
+            dfs = []
+            for file_path in file_paths:
+                if file_type == 'csv':
+                    df = pd.read_csv(file_path)
+                else:  # parquet
+                    df = pd.read_parquet(file_path)
+                dfs.append(df)
+            
+            combined_df = pd.concat(dfs, ignore_index=True)
+            return self._create_from_memory(combined_df, batch_size, shuffle)
         else:
             return self._load_files_streaming(file_paths, file_type, batch_size, chunk_size)
     
-    def _load_files_full(self,
-                        file_paths: list[str],
-                        file_type: Literal['csv', 'parquet'],
-                        batch_size: int,
-                        shuffle: bool) -> DataLoader:
-        """Load all files into memory and create DataLoader."""
-        # Read all files and concatenate
-        dfs = []
-        for file_path in file_paths:
-            if file_type == 'csv':
-                df = pd.read_csv(file_path)
-            else:  # parquet
-                df = pd.read_parquet(file_path)
-            dfs.append(df)
-        
-        combined_df = pd.concat(dfs, ignore_index=True)
-        return self._create_from_memory(combined_df, batch_size, shuffle)
-    
+
     def _load_files_streaming(self,
                              file_paths: list[str],
                              file_type: Literal['csv', 'parquet'],
                              batch_size: int,
                              chunk_size: int) -> DataLoader:
-        """Create streaming DataLoader for large files."""
+        # Create FileDataset for streaming
         dataset = FileDataset(
             file_paths=file_paths,
             dense_features=self.dense_features,
@@ -440,13 +400,13 @@ class RecDataLoader:
             sequence_features=self.sequence_features,
             target_columns=self.target_columns,
             chunk_size=chunk_size,
-            file_type=file_type
+            file_type=file_type,
+            processor=self.processor
         )
         
         return DataLoader(dataset, batch_size=batch_size, collate_fn=collate_fn)
     
     def _get_file_type(self, file_path: str) -> Literal['csv', 'parquet']:
-        """Determine file type from extension."""
         ext = os.path.splitext(file_path)[1].lower()
         if ext == '.csv':
             return 'csv'
@@ -455,15 +415,3 @@ class RecDataLoader:
         else:
             raise ValueError(f"Unsupported file type: {ext}")
     
-    def _get_column_data(self, data: Union[dict, pd.DataFrame], name: str):
-        """Extract column data from dict or DataFrame."""
-        if isinstance(data, dict):
-            return data.get(name, None)
-        elif isinstance(data, pd.DataFrame):
-            if name not in data.columns:
-                return None
-            return data[name].values
-        else:
-            if hasattr(data, name):
-                return getattr(data, name)
-            raise KeyError(f"Unsupported data type for extracting column {name}")
