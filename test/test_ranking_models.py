@@ -26,7 +26,7 @@ from reclib.models.ranking.xdeepfm import xDeepFM
 from reclib.models.ranking.dcn import DCN
 from reclib.models.ranking.dien import DIEN
 
-from test_utils import (
+from test.test_utils import (
     assert_model_output_shape,
     assert_model_output_range,
     assert_no_nan_or_inf,
