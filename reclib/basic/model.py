@@ -21,7 +21,7 @@ from reclib.basic.callback import EarlyStopper
 from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
 from reclib.basic.metrics import configure_metrics, evaluate_metrics
 
-from reclib.basic.data import get_column_data
+from reclib.data.utils import get_column_data
 from reclib.basic.loggers import setup_logger, colorize
 from reclib.utils.tools import get_optimizer_fn, get_loss_fn, get_scheduler_fn
 
@@ -87,6 +87,13 @@ class BaseModel(nn.Module):
             checkpoint_dir,
             f"{self.model_name}_{self.model_id}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.model"
         )
+
+        self.best = os.path.join(
+            checkpoint_dir,
+            f"{self.model_name}_{self.model_id}_best.model"
+        )
+
+
         self._logger_initialized = False
         self._verbose = 1
         self.best = os.path.join(
@@ -483,6 +490,7 @@ class BaseModel(nn.Module):
                 if self.best_metrics_mode == 'max':
                     if primary_metric > self._best_metric:
                         self._best_metric = primary_metric
+                        self.save_weights(self.best)
                         improved = True
                 else:
                     if primary_metric < self._best_metric:
