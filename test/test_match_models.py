@@ -20,7 +20,7 @@ from reclib.models.match.youtube_dnn import YoutubeDNN
 from reclib.models.match.mind import MIND
 from reclib.models.match.sdm import SDM
 
-from test.test_utils import (
+from test_utils import (
     assert_model_output_shape,
     assert_model_output_range,
     assert_no_nan_or_inf,

@@ -20,7 +20,7 @@ from reclib.models.multi_task.mmoe import MMOE
 from reclib.models.multi_task.ple import PLE
 from reclib.models.multi_task.esmm import ESMM
 
-from test.test_utils import (
+from test_utils import (
     assert_model_output_shape,
     assert_model_output_range,
     assert_no_nan_or_inf,
