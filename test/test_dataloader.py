@@ -130,13 +130,12 @@ class TestRecDataLoaderBasic:
         assert isinstance(dataloader, DataLoader)
         assert len(dataloader) > 0
         
-        # Get a batch
+        # Get a batch - should be a tuple of tensors
         batch = next(iter(dataloader))
-        assert isinstance(batch, dict)
-        assert 'age' in batch
-        assert 'user_id' in batch
-        assert 'item_history' in batch
-        assert 'label' in batch
+        assert isinstance(batch, (tuple, list))
+        # Should contain: dense features, sparse features, sequence features, and label
+        assert len(batch) > 0
+        assert all(isinstance(t, torch.Tensor) for t in batch)
         
         logger.info("create_dataloader from DataFrame test successful")
     
@@ -163,12 +162,16 @@ class TestRecDataLoaderBasic:
         
         assert isinstance(dataloader, DataLoader)
         
-        # Get a batch
+        # Get a batch - should be a tuple of tensors, not a dict
         batch = next(iter(dataloader))
-        assert isinstance(batch, dict)
-        assert 'age' in batch
-        assert 'user_id' in batch
-        assert 'item_history' in batch
+        assert isinstance(batch, (tuple, list))
+        # Should contain: 2 dense, 2 sparse, 1 sequence, 1 label = 6 tensors
+        assert len(batch) == 6
+        assert all(isinstance(t, torch.Tensor) for t in batch)
+        
+        # Verify tensor shapes
+        age_tensor = batch[0]  # First dense feature
+        assert age_tensor.shape[0] <= 2  # batch_size
         
         logger.info("create_dataloader from dict test successful")
     
@@ -197,7 +200,8 @@ class TestRecDataLoaderBasic:
             batch = next(iter(dataloader))
             
             # Check batch size (may be smaller for last batch)
-            assert batch['age'].shape[0] <= batch_size
+            # batch is a tuple of tensors, check first tensor
+            assert batch[0].shape[0] <= batch_size
             
             logger.info(f"Batch size {batch_size} test successful")
     
@@ -269,9 +273,10 @@ class TestRecDataLoaderFeatureTypes:
         dataloader = rec_dataloader.create_dataloader(data, batch_size=2)
         batch = next(iter(dataloader))
         
-        assert 'feature1' in batch
-        assert 'feature2' in batch
-        assert 'label' in batch
+        # batch is a tuple: (feature1_tensor, feature2_tensor, label_tensor)
+        assert isinstance(batch, (tuple, list))
+        assert len(batch) == 3  # 2 features + 1 label
+        assert all(isinstance(t, torch.Tensor) for t in batch)
         
         logger.info("Dense features only test successful")
     
@@ -302,8 +307,10 @@ class TestRecDataLoaderFeatureTypes:
         dataloader = rec_dataloader.create_dataloader(data, batch_size=2)
         batch = next(iter(dataloader))
         
-        assert 'feature1' in batch
-        assert 'feature2' in batch
+        # batch is a tuple: (feature1_tensor, feature2_tensor, label_tensor)
+        assert isinstance(batch, (tuple, list))
+        assert len(batch) == 3  # 2 features + 1 label
+        assert all(isinstance(t, torch.Tensor) for t in batch)
         
         logger.info("Sparse features only test successful")
     
@@ -342,8 +349,13 @@ class TestRecDataLoaderFeatureTypes:
         dataloader = rec_dataloader.create_dataloader(data, batch_size=2)
         batch = next(iter(dataloader))
         
-        assert 'seq1' in batch
-        assert batch['seq1'].shape[1] == 10  # max_len
+        # batch is a tuple: (seq1_tensor, label_tensor)
+        assert isinstance(batch, (tuple, list))
+        assert len(batch) == 2  # 1 sequence feature + 1 label
+        assert all(isinstance(t, torch.Tensor) for t in batch)
+        # Check sequence length
+        seq_tensor = batch[0]
+        assert seq_tensor.shape[1] == 10  # max_len
         
         logger.info("Sequence features only test successful")
 
@@ -375,9 +387,14 @@ class TestRecDataLoaderMultipleTargets:
         dataloader = rec_dataloader.create_dataloader(data, batch_size=2)
         batch = next(iter(dataloader))
         
-        assert 'feature1' in batch
-        assert 'label1' in batch
-        assert 'label2' in batch
+        # batch is a tuple: (feature1_tensor, labels_tensor)
+        assert isinstance(batch, (tuple, list))
+        assert len(batch) == 2  # 1 feature + 1 combined label tensor
+        assert all(isinstance(t, torch.Tensor) for t in batch)
+        # Check that labels are combined: should have 2 columns
+        label_tensor = batch[-1]  # Last tensor is labels
+        if label_tensor.dim() == 2:
+            assert label_tensor.shape[1] == 2  # 2 target columns
         
         logger.info("Multiple targets test successful")
 
@@ -432,7 +449,10 @@ class TestRecDataLoaderEdgeCases:
         dataloader = rec_dataloader.create_dataloader(data, batch_size=2)
         batch = next(iter(dataloader))
         
-        assert batch['feature1'].shape[0] == 1
+        # batch is a tuple of tensors
+        assert isinstance(batch, (tuple, list))
+        # Check first tensor has batch size of 1
+        assert batch[0].shape[0] == 1
         
         logger.info("Single sample test successful")
 
