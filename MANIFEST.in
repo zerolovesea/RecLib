@@ -1,0 +1,29 @@
+# Include documentation
+include README.md
+include README_zh.md
+include LICENSE
+
+# Include requirements
+include requirements.txt
+include test_requirements.txt
+
+# Include configuration files
+include pyproject.toml
+include pytest.ini
+
+# Exclude unnecessary files
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude __pycache__
+global-exclude .DS_Store
+global-exclude *.so
+global-exclude *.dylib
+
+# Exclude test files and checkpoints from distribution
+prune test
+prune checkpoints
+prune logs
+prune data
+prune tutorials
+prune .pytest_cache
+prune .venv
