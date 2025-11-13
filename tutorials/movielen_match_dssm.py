@@ -16,7 +16,7 @@ from reclib.data.utils import build_eval_candidates
 
 
 def example_movielens_100k_dssm():
-    df = pd.read_csv("dataset/movielens_100k_pointwise.csv")
+    df = pd.read_csv("dataset/movielens_100k.csv")
 
     base_cols = ['label']
     user_sparse_cols = ['user_id', 'gender', 'occupation', 'zip_code']

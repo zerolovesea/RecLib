@@ -14,7 +14,7 @@ from reclib.models.ranking.deepfm import DeepFM
 
 def example_movielens_100k_deepfm():
     """Example: MovieLens 100K for rating prediction."""
-    df = pd.read_csv("dataset/movielens_100k_pointwise.csv")
+    df = pd.read_csv("dataset/movielens_100k.csv")
 
     processor = DataProcessor()
     processor.add_sparse_feature('movie_title', encode_method='hash', hash_size=1000)

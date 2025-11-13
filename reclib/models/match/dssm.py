@@ -146,6 +146,11 @@ class DSSM(BaseMatchModel):
             include_modules=['item_dnn']
         )
         
+        self.compile(
+            optimizer="adam",
+            optimizer_params={"lr": 1e-3, "weight_decay": 1e-5},
+        )
+
         self.to(device)
     
     def user_tower(self, user_input: dict) -> torch.Tensor:

@@ -899,7 +899,7 @@ class BaseMatchModel(BaseModel):
                 optimizer_params: dict | None = None,
                 scheduler: str | torch.optim.lr_scheduler._LRScheduler | type[torch.optim.lr_scheduler._LRScheduler] | None = None,
                 scheduler_params: dict | None = None,
-                loss: str | nn.Module | list[str | nn.Module] | None= "bpr"):
+                loss: str | nn.Module | list[str | nn.Module] | None= None):
         """
         Compile match model with optimizer, scheduler, and loss function.
         Validates that training_mode is supported by the model.
@@ -994,10 +994,13 @@ class BaseMatchModel(BaseModel):
         user_input = self.get_user_features(X_input)
         item_input = self.get_item_features(X_input)
         
-        user_emb = self.user_tower(user_input)
-        item_emb = self.item_tower(item_input)
+        user_emb = self.user_tower(user_input)   # [B, D]
+        item_emb = self.item_tower(item_input)   # [B, D]
         
-        similarity = self.compute_similarity(user_emb, item_emb)
+        if self.training and self.training_mode in ['pairwise', 'listwise']:
+            return user_emb, item_emb
+
+        similarity = self.compute_similarity(user_emb, item_emb)  # [B]
         
         if self.training_mode == 'pointwise':
             return torch.sigmoid(similarity)
@@ -1010,23 +1013,25 @@ class BaseMatchModel(BaseModel):
                 return torch.tensor(0.0, device=self.device)
             return self.loss_fn[0](y_pred, y_true)
         
-        elif self.training_mode == 'pairwise':
-            if y_pred.dim() == 2 and y_pred.shape[1] >= 2:
-                pos_score = y_pred[:, 0]
-                neg_score = y_pred[:, 1:]
-                # BPR loss
-                loss = -torch.log(torch.sigmoid(pos_score.unsqueeze(1) - neg_score) + 1e-8)
-                return loss.mean()
-            else:
-                return torch.tensor(0.0, device=self.device)
-        
-        elif self.training_mode == 'listwise':
-            if y_pred.dim() == 2 and y_pred.shape[1] > 1:
-                targets = torch.zeros(y_pred.size(0), dtype=torch.long, device=y_pred.device)
-                loss = F.cross_entropy(y_pred, targets)
-                return loss
-            else:
-                return torch.tensor(0.0, device=self.device)
+        # pairwise / listwise using inbatch neg
+        elif self.training_mode in ['pairwise', 'listwise']:
+            if not isinstance(y_pred, (tuple, list)) or len(y_pred) != 2:
+                raise ValueError(
+                    "For pairwise/listwise training, forward should return (user_emb, item_emb). "
+                    "Please check BaseMatchModel.forward implementation."
+                )
+            
+            user_emb, item_emb = y_pred  # [B, D], [B, D]
+            
+            logits = torch.matmul(user_emb, item_emb.t())  # [B, B]
+            logits = logits / self.temperature            
+            
+            batch_size = logits.size(0)
+            targets = torch.arange(batch_size, device=logits.device)  # [0, 1, 2, ..., B-1]
+            
+            # Cross-Entropy = InfoNCE
+            loss = F.cross_entropy(logits, targets)
+            return loss
         
         else:
             raise ValueError(f"Unknown training mode: {self.training_mode}")
