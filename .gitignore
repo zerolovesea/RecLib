@@ -113,9 +113,10 @@ dmypy.json
 *.temp
 .temp/
 
-# local test files
+# test files
 local_deepfm.py
 local_mmoe.py
+online_mmoe.py
 
 # DataProcessor saved files
 processor/

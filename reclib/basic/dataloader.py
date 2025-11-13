@@ -4,6 +4,7 @@ import torch
 import logging
 import numpy as np
 import pandas as pd
+import tqdm
 
 from pathlib import Path
 from typing import Iterator, Literal, Union, Optional
@@ -46,9 +47,30 @@ class FileDataset(IterableDataset):
         
         self.all_features = dense_features + sparse_features + sequence_features
         self.feature_names = [f.name for f in self.all_features]
+        self.current_file_index = 0
+        self.total_files = len(file_paths)
     
     def __iter__(self) -> Iterator[tuple]:
+        self.current_file_index = 0
+        
+        # Log total files info at the beginning
+        if self.total_files > 1:
+            logging.info(colorize(f"Loading data from {self.total_files} files...", color="cyan", bold=True))
+        
+        # Calculate log interval (10% or at least every 1 file)
+        log_interval = max(1, self.total_files // 10)
+        
         for file_path in self.file_paths:
+            self.current_file_index += 1
+            
+            # Log only at intervals or for single file
+            file_name = os.path.basename(file_path)
+            if self.total_files == 1:
+                logging.info(colorize(f"Processing file: {file_name}", color="cyan"))
+            elif self.current_file_index % log_interval == 0 or self.current_file_index == self.total_files:
+                progress_pct = (self.current_file_index / self.total_files) * 100
+                tqdm.tqdm.write(colorize(f"  [{self.current_file_index}/{self.total_files}] ({progress_pct:.0f}%) {file_name}", color="cyan"))
+            
             if self.file_type == 'csv':
                 yield from self._read_csv_chunks(file_path)
             elif self.file_type == 'parquet':
@@ -63,19 +85,19 @@ class FileDataset(IterableDataset):
                 yield tensors
     
     def _read_parquet_chunks(self, file_path: str) -> Iterator[tuple]:
-        df = pd.read_parquet(file_path)
-        
-        num_chunks = (len(df) + self.chunk_size - 1) // self.chunk_size
-        
-        for i in range(num_chunks):
-            start_idx = i * self.chunk_size
-            end_idx = min((i + 1) * self.chunk_size, len(df))
-            chunk = df.iloc[start_idx:end_idx]
-            
+        """
+        Read parquet file in chunks to reduce memory footprint.
+        Uses pyarrow's batch reading for true streaming.
+        """
+        import pyarrow.parquet as pq
+        parquet_file = pq.ParquetFile(file_path)
+        for batch in parquet_file.iter_batches(batch_size=self.chunk_size):
+            chunk = batch.to_pandas()            
             tensors = self._dataframe_to_tensors(chunk)
             if tensors:
                 yield tensors
-    
+            del chunk
+                
     def _dataframe_to_tensors(self, df: pd.DataFrame) -> tuple | None:
         if self.processor is not None:
             if not self.processor.is_fitted:
