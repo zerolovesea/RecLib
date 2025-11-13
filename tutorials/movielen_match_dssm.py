@@ -12,7 +12,7 @@ from reclib.data.preprocessor import DataProcessor
 from reclib.basic.features import DenseFeature, SparseFeature
 from reclib.models.match.dssm import DSSM
 
-from reclib.data.utils import build_eval_candidates
+from reclib.data import build_eval_candidates
 
 def example_movielens_100k_dssm():
     df = pd.read_csv("dataset/movielens_100k.csv")
