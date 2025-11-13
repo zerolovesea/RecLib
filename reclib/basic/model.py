@@ -23,9 +23,9 @@ from reclib.basic.callback import EarlyStopper
 from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
 from reclib.basic.metrics import configure_metrics, evaluate_metrics
 
-from reclib.data.utils import get_column_data
+from reclib.data import get_column_data
 from reclib.basic.loggers import setup_logger, colorize
-from reclib.utils.tools import get_optimizer_fn, get_scheduler_fn
+from reclib.utils import get_optimizer_fn, get_scheduler_fn
 from reclib.loss import get_loss_fn
 
 
@@ -54,7 +54,12 @@ class BaseModel(nn.Module):
         
         super(BaseModel, self).__init__()
 
-        self.device = torch.device(device)
+        try:
+            self.device = torch.device(device)
+        except Exception as e:
+            logging.warning(colorize("Invalid device , defaulting to CPU.", color='yellow'))
+            self.device = torch.device('cpu')
+
         self.dense_features = list(dense_features) if dense_features is not None else []
         self.sparse_features = list(sparse_features) if sparse_features is not None else []
         self.sequence_features = list(sequence_features) if sequence_features is not None else []
@@ -236,6 +241,163 @@ class BaseModel(nn.Module):
         if not hasattr(self, 'early_stopper') or self.early_stopper is None:
             self.early_stopper = EarlyStopper(patience=self.early_stop_patience, mode=self.best_metrics_mode)
 
+    def _validate_task_configuration(self):
+        """Validate that task type, number of tasks, targets, and loss functions are consistent."""
+        # Check task and target consistency
+        if isinstance(self.task, list):
+            num_tasks_from_task = len(self.task)
+        else:
+            num_tasks_from_task = 1
+        
+        num_targets = len(self.target)
+        
+        if self.nums_task != num_tasks_from_task:
+            raise ValueError(
+                f"Number of tasks mismatch: nums_task={self.nums_task}, "
+                f"but task list has {num_tasks_from_task} tasks."
+            )
+        
+        if self.nums_task != num_targets:
+            raise ValueError(
+                f"Number of tasks ({self.nums_task}) does not match number of target columns ({num_targets}). "
+                f"Tasks: {self.task}, Targets: {self.target}"
+            )
+        
+        # Check loss function consistency
+        if hasattr(self, 'loss_fn'):
+            num_loss_fns = len(self.loss_fn)
+            if num_loss_fns != self.nums_task:
+                raise ValueError(
+                    f"Number of loss functions ({num_loss_fns}) does not match number of tasks ({self.nums_task})."
+                )
+        
+        # Validate task types with metrics and loss functions
+        from reclib.loss import VALID_TASK_TYPES
+        from reclib.basic.metrics import CLASSIFICATION_METRICS, REGRESSION_METRICS
+        
+        tasks_to_check = self.task if isinstance(self.task, list) else [self.task]
+        
+        for i, task_type in enumerate(tasks_to_check):
+            # Validate task type
+            if task_type not in VALID_TASK_TYPES:
+                raise ValueError(
+                    f"Invalid task type '{task_type}' for task {i}. "
+                    f"Valid types: {VALID_TASK_TYPES}"
+                )
+            
+            # Check metrics compatibility
+            if hasattr(self, 'task_specific_metrics') and self.task_specific_metrics:
+                target_name = self.target[i] if i < len(self.target) else f"task_{i}"
+                task_metrics = self.task_specific_metrics.get(target_name, self.metrics)
+                
+                for metric in task_metrics:
+                    metric_lower = metric.lower()
+                    # Skip gauc as it's valid for both classification and regression in some contexts
+                    if metric_lower == 'gauc':
+                        continue
+                    
+                    if task_type in ['binary', 'multiclass']:
+                        # Classification task
+                        if metric_lower in REGRESSION_METRICS:
+                            raise ValueError(
+                                f"Metric '{metric}' is not compatible with classification task type '{task_type}' "
+                                f"for target '{target_name}'. Classification metrics: {CLASSIFICATION_METRICS}"
+                            )
+                    elif task_type in ['regression', 'multivariate_regression']:
+                        # Regression task
+                        if metric_lower in CLASSIFICATION_METRICS:
+                            raise ValueError(
+                                f"Metric '{metric}' is not compatible with regression task type '{task_type}' "
+                                f"for target '{target_name}'. Regression metrics: {REGRESSION_METRICS}"
+                            )
+
+    def _handle_validation_split(self, 
+                                 train_data: dict | pd.DataFrame | DataLoader,
+                                 validation_split: float,
+                                 batch_size: int,
+                                 shuffle: bool) -> tuple[DataLoader, dict | pd.DataFrame]:
+        """Handle validation split logic for training data.
+        
+        Args:
+            train_data: Training data (dict, DataFrame, or DataLoader)
+            validation_split: Fraction of data to use for validation (0 < validation_split < 1)
+            batch_size: Batch size for DataLoader
+            shuffle: Whether to shuffle training data
+            
+        Returns:
+            tuple: (train_loader, valid_data)
+        """
+        if not (0 < validation_split < 1):
+            raise ValueError(f"validation_split must be between 0 and 1, got {validation_split}")
+        
+        if isinstance(train_data, DataLoader):
+            raise ValueError(
+                "validation_split cannot be used when train_data is a DataLoader. "
+                "Please provide dict or pd.DataFrame for train_data."
+            )
+        
+        if isinstance(train_data, pd.DataFrame):
+            # Shuffle and split DataFrame
+            shuffled_df = train_data.sample(frac=1.0, random_state=42).reset_index(drop=True)
+            split_idx = int(len(shuffled_df) * (1 - validation_split))
+            train_split = shuffled_df.iloc[:split_idx]
+            valid_split = shuffled_df.iloc[split_idx:]
+            
+            train_loader = self._prepare_data_loader(train_split, batch_size=batch_size, shuffle=shuffle)
+            
+            if self._verbose:
+                logging.info(colorize(
+                    f"Split data: {len(train_split)} training samples, {len(valid_split)} validation samples",
+                    color="cyan"
+                ))
+            
+            return train_loader, valid_split
+        
+        elif isinstance(train_data, dict):
+            # Get total length from any feature
+            sample_key = list(train_data.keys())[0]
+            total_length = len(train_data[sample_key])
+            
+            # Create indices and shuffle
+            indices = np.arange(total_length)
+            np.random.seed(42)
+            np.random.shuffle(indices)
+            
+            split_idx = int(total_length * (1 - validation_split))
+            train_indices = indices[:split_idx]
+            valid_indices = indices[split_idx:]
+            
+            # Split dict
+            train_split = {}
+            valid_split = {}
+            for key, value in train_data.items():
+                if isinstance(value, np.ndarray):
+                    train_split[key] = value[train_indices]
+                    valid_split[key] = value[valid_indices]
+                elif isinstance(value, (list, tuple)):
+                    value_array = np.array(value)
+                    train_split[key] = value_array[train_indices].tolist()
+                    valid_split[key] = value_array[valid_indices].tolist()
+                elif isinstance(value, pd.Series):
+                    train_split[key] = value.iloc[train_indices].values
+                    valid_split[key] = value.iloc[valid_indices].values
+                else:
+                    train_split[key] = [value[i] for i in train_indices]
+                    valid_split[key] = [value[i] for i in valid_indices]
+            
+            train_loader = self._prepare_data_loader(train_split, batch_size=batch_size, shuffle=shuffle)
+            
+            if self._verbose:
+                logging.info(colorize(
+                    f"Split data: {len(train_indices)} training samples, {len(valid_indices)} validation samples",
+                    color="cyan"
+                ))
+            
+            return train_loader, valid_split
+        
+        else:
+            raise TypeError(f"Unsupported train_data type: {type(train_data)}")
+
 
     def compile(self, 
                 optimizer = "adam",
@@ -251,7 +413,8 @@ class BaseModel(nn.Module):
         if isinstance(scheduler, str):
             self._scheduler_name = scheduler
         elif scheduler is not None:
-            self._scheduler_name = scheduler.__class__.__name__ if hasattr(scheduler, '__class__') else str(scheduler)
+            # Try to get __name__ first (for class types), then __class__.__name__ (for instances)
+            self._scheduler_name = getattr(scheduler, '__name__', getattr(scheduler.__class__, '__name__', str(scheduler)))
         else:
             self._scheduler_name = None
         self._scheduler_params = scheduler_params or {}
@@ -396,47 +559,52 @@ class BaseModel(nn.Module):
             valid_data: dict|pd.DataFrame|DataLoader|None=None, 
             metrics: list[str]|dict[str, list[str]]|None = None, # ['auc', 'logloss'] or {'target1': ['auc', 'logloss'], 'target2': ['mse']}
             epochs:int=1, verbose:int=1, shuffle:bool=True, batch_size:int=32,
-            user_id_column: str = 'user_id'):
+            user_id_column: str = 'user_id',
+            validation_split: float | None = None):
 
         self.to(self.device)
         if not self._logger_initialized:
             setup_logger()
             self._logger_initialized = True
         self._verbose = verbose
-
         self._set_metrics(metrics) # add self.metrics, self.task_specific_metrics, self.best_metrics_mode, self.early_stopper
         
-        # Print DataProcessor summary first if it exists in train_data
-        if isinstance(train_data, DataLoader):
-            # Check if the dataset has a processor (for streaming FileDataset)
-            if hasattr(train_data, 'dataset'):
-                dataset = train_data.dataset
-                if hasattr(dataset, 'processor'):
-                    processor = getattr(dataset, 'processor', None)
-                    if processor is not None and hasattr(processor, 'summary') and hasattr(processor, 'is_fitted') and processor.is_fitted:
-                        processor.summary()
+        # Validate task configuration before training
+        self._validate_task_configuration()
         
-        # Print model summary
-        self.summary()
+        if self._verbose:
+            self.summary()
 
-        if not isinstance(train_data, DataLoader):
-            train_loader = self._prepare_data_loader(train_data, batch_size=batch_size, shuffle=shuffle)
+        # Handle validation_split parameter
+        valid_loader = None
+        if validation_split is not None and valid_data is None:
+            train_loader, valid_data = self._handle_validation_split(
+                train_data=train_data,
+                validation_split=validation_split,
+                batch_size=batch_size,
+                shuffle=shuffle
+            )
         else:
-            train_loader = train_data
+            if not isinstance(train_data, DataLoader):
+                train_loader = self._prepare_data_loader(train_data, batch_size=batch_size, shuffle=shuffle)
+            else:
+                train_loader = train_data
         
-        # Extract user_ids from validation data for GAUC computation
+
         valid_user_ids: np.ndarray | None = None
-        if valid_data is not None and not isinstance(valid_data, DataLoader):
-            valid_loader = self._prepare_data_loader(valid_data, batch_size=batch_size, shuffle=False)
-            # Extract user_ids if available
-            if isinstance(valid_data, pd.DataFrame) and user_id_column in valid_data.columns:
-                valid_user_ids = np.asarray(valid_data[user_id_column].values)
-            elif isinstance(valid_data, dict) and user_id_column in valid_data:
-                valid_user_ids = np.asarray(valid_data[user_id_column])
-        elif valid_data is not None:
-            valid_loader = valid_data
-        else:
-            valid_loader = None
+        needs_user_ids = self._needs_user_ids_for_metrics()
+
+        if valid_loader is None:
+            if valid_data is not None and not isinstance(valid_data, DataLoader):
+                valid_loader = self._prepare_data_loader(valid_data, batch_size=batch_size, shuffle=False)
+                # Extract user_ids only if needed for GAUC
+                if needs_user_ids:
+                    if isinstance(valid_data, pd.DataFrame) and user_id_column in valid_data.columns:
+                        valid_user_ids = np.asarray(valid_data[user_id_column].values)
+                    elif isinstance(valid_data, dict) and user_id_column in valid_data:
+                        valid_user_ids = np.asarray(valid_data[user_id_column])
+            elif valid_data is not None:
+                valid_loader = valid_data
         
         try:
             self._steps_per_epoch = len(train_loader)
@@ -462,11 +630,29 @@ class BaseModel(nn.Module):
         
         for epoch in range(epochs):
             self._epoch_index = epoch
-            train_loss = self.train_epoch(train_loader)
+            
+            # In streaming mode, print epoch header before progress bar
+            if self._verbose and is_streaming:
+                logging.info("")
+                logging.info(colorize(f"Epoch {epoch + 1}/{epochs}", color="bright_green", bold=True))
+
+            # Train with metrics computation
+            train_result = self.train_epoch(train_loader, is_streaming=is_streaming, compute_metrics=True)
+            
+            # Unpack results
+            if isinstance(train_result, tuple):
+                train_loss, train_metrics = train_result
+            else:
+                train_loss = train_result
+                train_metrics = None
 
             if self._verbose:
                 if self.nums_task == 1:
-                    logging.info(colorize(f"Epoch {epoch + 1}/{epochs} - train_loss: {train_loss:.4f}", color="white"))
+                    log_str = f"Epoch {epoch + 1}/{epochs} - Train: loss={train_loss:.4f}"
+                    if train_metrics:
+                        metrics_str = ", ".join([f"{k}={v:.4f}" for k, v in train_metrics.items()])
+                        log_str += f", {metrics_str}"
+                    logging.info(colorize(log_str, color="white"))
                 else:
                     task_labels = []
                     for i in range(self.nums_task):
@@ -475,17 +661,42 @@ class BaseModel(nn.Module):
                         else:
                             task_labels.append(f"task_{i}")
                     
-                    loss_str = ", ".join([f"{task_labels[i]}_loss: {train_loss[i]:.4f}" for i in range(self.nums_task)])  # type: ignore
                     total_loss_val = np.sum(train_loss) if isinstance(train_loss, np.ndarray) else train_loss  # type: ignore
-                    logging.info(colorize(f"Epoch {epoch + 1}/{epochs} - {loss_str}, total_loss: {total_loss_val:.4f}", color="white"))
+                    log_str = f"Epoch {epoch + 1}/{epochs} - Train: loss={total_loss_val:.4f}"
+                    
+                    if train_metrics:
+                        # Group metrics by task
+                        task_metrics = {}
+                        for metric_key, metric_value in train_metrics.items():
+                            for target_name in self.target:
+                                if metric_key.endswith(f"_{target_name}"):
+                                    if target_name not in task_metrics:
+                                        task_metrics[target_name] = {}
+                                    metric_name = metric_key.rsplit(f"_{target_name}", 1)[0]
+                                    task_metrics[target_name][metric_name] = metric_value
+                                    break
+                        
+                        if task_metrics:
+                            task_metric_strs = []
+                            for target_name in self.target:
+                                if target_name in task_metrics:
+                                    metrics_str = ", ".join([f"{k}={v:.4f}" for k, v in task_metrics[target_name].items()])
+                                    task_metric_strs.append(f"{target_name}[{metrics_str}]")
+                            log_str += ", " + ", ".join(task_metric_strs)
+                    
+                    logging.info(colorize(log_str, color="white"))
             
             if valid_loader is not None:
-                val_metrics = self.evaluate(valid_loader, user_ids=valid_user_ids) # {'auc': 0.75, 'logloss': 0.45} or {'auc_target1': 0.75, 'logloss_target1': 0.45, 'mse_target2': 3.2}
+                # Pass user_ids only if needed for GAUC metric
+                val_metrics = self.evaluate(
+                    valid_loader, 
+                    user_ids=valid_user_ids if needs_user_ids else None
+                ) # {'auc': 0.75, 'logloss': 0.45} or {'auc_target1': 0.75, 'logloss_target1': 0.45, 'mse_target2': 3.2}
             
                 if self._verbose:
                     if self.nums_task == 1:
-                        metrics_str = ", ".join([f"{k}: {v:.4f}" for k, v in val_metrics.items()])
-                        logging.info(colorize(f"Validation - {metrics_str}", color="cyan", bold=True))
+                        metrics_str = ", ".join([f"{k}={v:.4f}" for k, v in val_metrics.items()])
+                        logging.info(colorize(f"Epoch {epoch + 1}/{epochs} - Valid: {metrics_str}", color="cyan"))
                     else:
                         # multi task metrics
                         task_metrics = {}
@@ -498,12 +709,19 @@ class BaseModel(nn.Module):
                                     task_metrics[target_name][metric_name] = metric_value
                                     break
 
-                        logging.info(colorize(f"Validation:", color="cyan", bold=True))
-
+                        task_metric_strs = []
                         for target_name in self.target:
                             if target_name in task_metrics:
-                                metrics_str = ", ".join([f"{k}: {v:.4f}" for k, v in task_metrics[target_name].items()])
-                                logging.info(colorize(f"  [{target_name}] {metrics_str}", color="cyan", bold=True))
+                                metrics_str = ", ".join([f"{k}={v:.4f}" for k, v in task_metrics[target_name].items()])
+                                task_metric_strs.append(f"{target_name}[{metrics_str}]")
+                        
+                        logging.info(colorize(f"Epoch {epoch + 1}/{epochs} - Valid: " + ", ".join(task_metric_strs), color="cyan"))
+                
+                # Handle empty validation metrics
+                if not val_metrics:
+                    if self._verbose:
+                        logging.info(colorize(f"Warning: No validation metrics computed. Skipping validation for this epoch.", color="yellow"))
+                    continue
                 
                 if self.nums_task == 1:
                     primary_metric_key = self.metrics[0]
@@ -563,7 +781,7 @@ class BaseModel(nn.Module):
         
         return self
 
-    def train_epoch(self, train_loader: DataLoader) -> Union[float, np.ndarray]:
+    def train_epoch(self, train_loader: DataLoader, is_streaming: bool = False, compute_metrics: bool = False) -> Union[float, np.ndarray, tuple[Union[float, np.ndarray], dict]]:
         if self.nums_task == 1:
             accumulated_loss = 0.0
         else:
@@ -571,14 +789,27 @@ class BaseModel(nn.Module):
         
         self.train()
         num_batches = 0
+        
+        # Lists to store predictions and labels for metric computation
+        y_true_list = []
+        y_pred_list = []
 
         if self._verbose:
             # For streaming datasets without known length, set total=None to show progress without percentage
             if self._steps_per_epoch is not None:
                 batch_iter = enumerate(tqdm.tqdm(train_loader, desc=f"Epoch {self._epoch_index + 1}", total=self._steps_per_epoch))
             else:
-                # Streaming mode: show batch count without total
-                batch_iter = enumerate(tqdm.tqdm(train_loader, desc=f"Epoch {self._epoch_index + 1}"))
+                # Streaming mode: show batch/file progress without epoch in desc
+                if is_streaming:
+                    batch_iter = enumerate(tqdm.tqdm(
+                        train_loader, 
+                        desc="Batches", 
+                        # position=1,
+                        # leave=False,
+                        # unit="batch"
+                    ))
+                else:
+                    batch_iter = enumerate(tqdm.tqdm(train_loader, desc=f"Epoch {self._epoch_index + 1}"))
         else:
             batch_iter = enumerate(train_loader)
 
@@ -605,31 +836,102 @@ class BaseModel(nn.Module):
             else:
                 accumulated_loss += loss.detach().cpu().numpy()
             
+            # Collect predictions and labels for metrics if requested
+            if compute_metrics:
+                if y_true is not None:
+                    y_true_list.append(y_true.detach().cpu().numpy())
+                if y_pred is not None:
+                    y_pred_list.append(y_pred.detach().cpu().numpy())
+            
             num_batches += 1
 
         if self.nums_task == 1:
-            return accumulated_loss / num_batches
+            avg_loss = accumulated_loss / num_batches
         else:
-            return accumulated_loss / num_batches
+            avg_loss = accumulated_loss / num_batches
+        
+        # Compute metrics if requested
+        if compute_metrics and len(y_true_list) > 0 and len(y_pred_list) > 0:
+            y_true_all = np.concatenate(y_true_list, axis=0)
+            y_pred_all = np.concatenate(y_pred_list, axis=0)
+            metrics_dict = self.evaluate_metrics(y_true_all, y_pred_all, self.metrics, user_ids=None)
+            return avg_loss, metrics_dict
+        
+        return avg_loss
 
 
-    def evaluate(self, data_loader: DataLoader, user_ids: np.ndarray | None = None) -> dict:
+    def _needs_user_ids_for_metrics(self) -> bool:
+        """Check if any configured metric requires user_ids (e.g., gauc)."""
+        all_metrics = set()
+        
+        # Collect all metrics from different sources
+        if hasattr(self, 'metrics') and self.metrics:
+            all_metrics.update(m.lower() for m in self.metrics)
+        
+        if hasattr(self, 'task_specific_metrics') and self.task_specific_metrics:
+            for task_metrics in self.task_specific_metrics.values():
+                if isinstance(task_metrics, list):
+                    all_metrics.update(m.lower() for m in task_metrics)
+        
+        # Check if gauc is in any of the metrics
+        return 'gauc' in all_metrics
+
+    def evaluate(self, 
+                 data: dict | pd.DataFrame | DataLoader, 
+                 metrics: list[str] | dict[str, list[str]] | None = None,
+                 batch_size: int = 32,
+                 user_ids: np.ndarray | None = None,
+                 user_id_column: str = 'user_id') -> dict:
         """
         Evaluate the model on validation data.
         
         Args:
-            data_loader: DataLoader for evaluation
-            user_ids: Optional user IDs for computing GAUC metric
+            data: Evaluation data (dict, DataFrame, or DataLoader)
+            metrics: Optional metrics to use for evaluation. If None, uses metrics from fit()
+            batch_size: Batch size for evaluation (only used if data is dict or DataFrame)
+            user_ids: Optional user IDs for computing GAUC metric. If None and gauc is needed,
+                     will try to extract from data using user_id_column
+            user_id_column: Column name for user IDs (default: 'user_id')
             
         Returns:
             Dictionary of metric values
         """
         self.eval()
+        
+        # Use provided metrics or fall back to configured metrics
+        eval_metrics = metrics if metrics is not None else self.metrics
+        if eval_metrics is None:
+            raise ValueError("No metrics specified for evaluation. Please provide metrics parameter or call fit() first.")
+        
+        # Prepare DataLoader if needed
+        if isinstance(data, DataLoader):
+            data_loader = data
+            # Try to extract user_ids from original data if needed
+            if user_ids is None and self._needs_user_ids_for_metrics():
+                # Cannot extract user_ids from DataLoader, user must provide them
+                if self._verbose:
+                    logging.warning(colorize(
+                        "GAUC metric requires user_ids, but data is a DataLoader. "
+                        "Please provide user_ids parameter or use dict/DataFrame format.",
+                        color="yellow"
+                    ))
+        else:
+            # Extract user_ids if needed and not provided
+            if user_ids is None and self._needs_user_ids_for_metrics():
+                if isinstance(data, pd.DataFrame) and user_id_column in data.columns:
+                    user_ids = np.asarray(data[user_id_column].values)
+                elif isinstance(data, dict) and user_id_column in data:
+                    user_ids = np.asarray(data[user_id_column])
+            
+            data_loader = self._prepare_data_loader(data, batch_size=batch_size, shuffle=False)
+        
         y_true_list = []
         y_pred_list = []
         
+        batch_count = 0
         with torch.no_grad():
             for batch_data in data_loader:
+                batch_count += 1
                 batch_dict = self._batch_to_dict(batch_data)
                 X_input, y_true = self.get_input(batch_dict)
                 y_pred = self.forward(X_input)
@@ -639,17 +941,38 @@ class BaseModel(nn.Module):
                 if y_pred is not None:
                     y_pred_list.append(y_pred.cpu().numpy())
 
+        if self._verbose:
+            logging.info(colorize(f"  Evaluation batches processed: {batch_count}", color="cyan"))
+        
         if len(y_true_list) > 0:
             y_true_all = np.concatenate(y_true_list, axis=0)
+            if self._verbose:
+                logging.info(colorize(f"  Evaluation samples: {y_true_all.shape[0]}", color="cyan"))
         else:
             y_true_all = None
+            if self._verbose:
+                logging.info(colorize(f"  Warning: No y_true collected from evaluation data", color="yellow"))
             
         if len(y_pred_list) > 0:
             y_pred_all = np.concatenate(y_pred_list, axis=0)
         else:
             y_pred_all = None
+            if self._verbose:
+                logging.info(colorize(f"  Warning: No y_pred collected from evaluation data", color="yellow"))
         
-        metrics_dict = self.evaluate_metrics(y_true_all, y_pred_all, self.metrics, user_ids)
+        # Convert metrics to list if it's a dict
+        if isinstance(eval_metrics, dict):
+            # For dict metrics, we need to collect all unique metric names
+            unique_metrics = []
+            for task_metrics in eval_metrics.values():
+                for m in task_metrics:
+                    if m not in unique_metrics:
+                        unique_metrics.append(m)
+            metrics_to_use = unique_metrics
+        else:
+            metrics_to_use = eval_metrics
+        
+        metrics_dict = self.evaluate_metrics(y_true_all, y_pred_all, metrics_to_use, user_ids)
         
         return metrics_dict
 
@@ -945,7 +1268,8 @@ class BaseMatchModel(BaseModel):
         if isinstance(scheduler, str):
             self._scheduler_name = scheduler
         elif scheduler is not None:
-            self._scheduler_name = scheduler.__class__.__name__ if hasattr(scheduler, '__class__') else str(scheduler)
+            # Try to get __name__ first (for class types), then __class__.__name__ (for instances)
+            self._scheduler_name = getattr(scheduler, '__name__', getattr(scheduler.__class__, '__name__', str(scheduler)))
         else:
             self._scheduler_name = None
         self._scheduler_params = scheduler_params or {}
@@ -1013,7 +1337,7 @@ class BaseMatchModel(BaseModel):
     def item_tower(self, item_input: dict) -> torch.Tensor:
         raise NotImplementedError
     
-    def forward(self, X_input: dict) -> torch.Tensor:
+    def forward(self, X_input: dict) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         user_input = self.get_user_features(X_input)
         item_input = self.get_item_features(X_input)
         
