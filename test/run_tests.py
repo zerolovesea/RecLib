@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Test Runner Script for RecLib
+Test Runner Script for RecForge
 
 This script provides a convenient way to run tests with various options.
 """
@@ -29,7 +29,7 @@ def run_tests(test_type='all', verbose=True, coverage=False, markers=None):
     Returns:
         int: Exit code from pytest
     """
-    cmd = ['pytest']
+    cmd = [sys.executable, '-m', 'pytest']
     
     # Determine which tests to run
     if test_type == 'all':
@@ -51,7 +51,7 @@ def run_tests(test_type='all', verbose=True, coverage=False, markers=None):
     # Add coverage
     if coverage:
         cmd.extend([
-            '--cov=reclib',
+            '--cov=recforge',
             '--cov-report=html',
             '--cov-report=term-missing'
         ])
@@ -78,7 +78,7 @@ def run_tests(test_type='all', verbose=True, coverage=False, markers=None):
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description='Run RecLib unit tests',
+        description='Run RecForge unit tests',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -128,7 +128,7 @@ Examples:
     
     # Display banner
     logger.info("=" * 80)
-    logger.info("RecLib Unit Test Runner")
+    logger.info("RecForge Unit Test Runner")
     logger.info("=" * 80)
     logger.info(f"Test type: {args.type}")
     logger.info(f"Coverage: {args.coverage}")
