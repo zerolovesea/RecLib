@@ -1,3 +1,11 @@
+"""
+Loss functions for matching tasks
+
+Date: create on 13/11/2025
+Author:
+    Yang Zhou,zyaztec@gmail.com
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -149,3 +157,138 @@ class InfoNCELoss(nn.Module):
         loss = F.cross_entropy(logits, labels, reduction=self.reduction)
         
         return loss
+
+
+class ListNetLoss(nn.Module):
+    """
+    ListNet loss using top-1 probability distribution
+    Reference: Cao et al. Learning to Rank: From Pairwise Approach to Listwise Approach (ICML 2007)
+    """
+    def __init__(self, temperature: float = 1.0, reduction: str = 'mean'):
+        super(ListNetLoss, self).__init__()
+        self.temperature = temperature
+        self.reduction = reduction
+    
+    def forward(self, scores: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        # Convert scores and labels to probability distributions
+        pred_probs = F.softmax(scores / self.temperature, dim=1)
+        true_probs = F.softmax(labels / self.temperature, dim=1)
+        
+        # Cross entropy between two distributions
+        loss = -torch.sum(true_probs * torch.log(pred_probs + 1e-10), dim=1)
+        
+        if self.reduction == 'mean':
+            return loss.mean()
+        elif self.reduction == 'sum':
+            return loss.sum()
+        else:
+            return loss
+
+
+class ListMLELoss(nn.Module):
+    """
+    ListMLE (Maximum Likelihood Estimation) loss
+    Reference: Xia et al. Listwise approach to learning to rank: theory and algorithm (ICML 2008)
+    """
+    def __init__(self, reduction: str = 'mean'):
+        super(ListMLELoss, self).__init__()
+        self.reduction = reduction
+    
+    def forward(self, scores: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        # Sort by labels in descending order to get ground truth ranking
+        sorted_labels, sorted_indices = torch.sort(labels, descending=True, dim=1)
+        
+        # Reorder scores according to ground truth ranking
+        batch_size, list_size = scores.shape
+        batch_indices = torch.arange(batch_size, device=scores.device).unsqueeze(1).expand(-1, list_size)
+        sorted_scores = scores[batch_indices, sorted_indices]
+        
+        # Compute log likelihood
+        # For each position, compute log(exp(score_i) / sum(exp(score_j) for j >= i))
+        loss = torch.tensor(0.0, device=scores.device)
+        for i in range(list_size):
+            # Log-sum-exp trick for numerical stability
+            remaining_scores = sorted_scores[:, i:]
+            log_sum_exp = torch.logsumexp(remaining_scores, dim=1)
+            loss = loss + (log_sum_exp - sorted_scores[:, i]).sum()
+        
+        if self.reduction == 'mean':
+            return loss / batch_size
+        elif self.reduction == 'sum':
+            return loss
+        else:
+            return loss / batch_size
+
+
+class ApproxNDCGLoss(nn.Module):
+    """
+    Approximate NDCG loss for learning to rank
+    Reference: Qin et al. A General Approximation Framework for Direct Optimization of 
+               Information Retrieval Measures (Information Retrieval 2010)
+    """
+    def __init__(self, temperature: float = 1.0, reduction: str = 'mean'):
+        super(ApproxNDCGLoss, self).__init__()
+        self.temperature = temperature
+        self.reduction = reduction
+    
+    def _dcg(self, relevance: torch.Tensor, k: Optional[int] = None) -> torch.Tensor:
+        if k is not None:
+            relevance = relevance[:, :k]
+        
+        # DCG = sum(rel_i / log2(i + 2)) for i in range(list_size)
+        positions = torch.arange(1, relevance.size(1) + 1, device=relevance.device, dtype=torch.float32)
+        discounts = torch.log2(positions + 1.0)
+        dcg = torch.sum(relevance / discounts, dim=1)
+        
+        return dcg
+    
+    def forward(self, scores: torch.Tensor, labels: torch.Tensor, k: Optional[int] = None) -> torch.Tensor:
+        """
+        Args:
+            scores: Predicted scores [batch_size, list_size]
+            labels: Ground truth relevance labels [batch_size, list_size]
+            k: Top-k items for NDCG@k (if None, use all items)
+        
+        Returns:
+            Approximate NDCG loss (1 - NDCG)
+        """
+        batch_size = scores.size(0)
+        
+        # Use differentiable sorting approximation with softmax
+        # Create pairwise comparison matrix
+        scores_expanded = scores.unsqueeze(2)  # [batch_size, list_size, 1]
+        scores_tiled = scores.unsqueeze(1)     # [batch_size, 1, list_size]
+        
+        # Compute pairwise probabilities using sigmoid
+        pairwise_diff = (scores_expanded - scores_tiled) / self.temperature
+        pairwise_probs = torch.sigmoid(pairwise_diff)  # [batch_size, list_size, list_size]
+        
+        # Approximate ranking positions
+        # ranking_probs[i, j] ≈ probability that item i is ranked at position j
+        # We use softmax approximation for differentiable ranking
+        ranking_weights = F.softmax(scores / self.temperature, dim=1)
+        
+        # Sort labels to get ideal DCG
+        ideal_labels, _ = torch.sort(labels, descending=True, dim=1)
+        ideal_dcg = self._dcg(ideal_labels, k)
+        
+        # Compute approximate DCG using soft ranking
+        # Weight each item's relevance by its soft ranking position
+        positions = torch.arange(1, scores.size(1) + 1, device=scores.device, dtype=torch.float32)
+        discounts = 1.0 / torch.log2(positions + 1.0)
+        
+        # Approximate DCG by weighting relevance with ranking probabilities
+        approx_dcg = torch.sum(labels * ranking_weights * discounts, dim=1)
+        
+        # Normalize by ideal DCG to get NDCG
+        ndcg = approx_dcg / (ideal_dcg + 1e-10)
+        
+        # Loss is 1 - NDCG (we want to maximize NDCG, so minimize 1 - NDCG)
+        loss = 1.0 - ndcg
+        
+        if self.reduction == 'mean':
+            return loss.mean()
+        elif self.reduction == 'sum':
+            return loss.sum()
+        else:
+            return loss
