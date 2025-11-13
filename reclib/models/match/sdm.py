@@ -17,15 +17,13 @@ from reclib.basic.layers import MLP, EmbeddingLayer
 
 
 class SDM(BaseMatchModel):
-    """
-    Sequential Deep Matching Model
-    
-    使用RNN处理用户行为序列，捕捉时序依赖关系
-    """
-    
     @property
     def model_name(self) -> str:
         return "SDM"
+    
+    @property
+    def support_training_modes(self) -> list[str]:
+        return ['pointwise']
     
     def __init__(self,
                  user_dense_features: list[DenseFeature] | None = None,
@@ -95,12 +93,9 @@ class SDM(BaseMatchModel):
         if len(user_features) > 0:
             self.user_embedding = EmbeddingLayer(user_features)
             
-            # 需要有序列特征
             if not user_sequence_features or len(user_sequence_features) == 0:
                 raise ValueError("SDM requires at least one user sequence feature")
             
-            # RNN for sequence modeling
-            # 输入是序列embedding
             seq_emb_dim = user_sequence_features[0].embedding_dim
             
             if rnn_type == 'GRU':
@@ -122,14 +117,12 @@ class SDM(BaseMatchModel):
             else:
                 raise ValueError(f"Unknown RNN type: {rnn_type}")
             
-            # 计算最终user representation的维度
             user_final_dim = 0
             if use_long_term:
-                user_final_dim += rnn_hidden_size  # 最后一个hidden state
+                user_final_dim += rnn_hidden_size  
             if use_short_term:
-                user_final_dim += seq_emb_dim  # 最后一个item embedding
+                user_final_dim += seq_emb_dim  
             
-            # 其他user特征
             for feat in user_dense_features or []:
                 user_final_dim += 1
             for feat in user_sparse_features or []:
@@ -189,30 +182,19 @@ class SDM(BaseMatchModel):
         self.to(device)
     
     def user_tower(self, user_input: dict) -> torch.Tensor:
-        """
-        User tower with sequential modeling
-        
-        Returns:
-            user_emb: [batch_size, embedding_dim]
-        """
-        # 获取序列特征的embedding
         seq_feature = self.user_sequence_features[0]
         seq_input = user_input[seq_feature.name]
         
-        # 获取序列embedding
         embed = self.user_embedding.embed_dict[seq_feature.embedding_name]
         seq_emb = embed(seq_input.long())  # [batch_size, seq_len, seq_emb_dim]
         
-        # RNN处理序列
         if self.rnn_type == 'GRU':
             rnn_output, hidden = self.rnn(seq_emb)  # hidden: [num_layers, batch, hidden_size]
         elif self.rnn_type == 'LSTM':
             rnn_output, (hidden, cell) = self.rnn(seq_emb)
         
-        # 提取特征
         features_list = []
         
-        # Long-term interest: 最后的hidden state
         if self.use_long_term:
             if self.rnn.num_layers > 1:
                 long_term = hidden[-1, :, :]  # [batch_size, hidden_size]
@@ -220,20 +202,16 @@ class SDM(BaseMatchModel):
                 long_term = hidden.squeeze(0)  # [batch_size, hidden_size]
             features_list.append(long_term)
         
-        # Short-term interest: 最后一个item的embedding
         if self.use_short_term:
-            # 找到每个序列的最后一个有效位置
             mask = (seq_input != seq_feature.padding_idx).float()  # [batch_size, seq_len]
             seq_lengths = mask.sum(dim=1).long() - 1  # [batch_size]
             seq_lengths = torch.clamp(seq_lengths, min=0)
             
-            # 获取最后一个有效item的embedding
             batch_size = seq_emb.size(0)
             batch_indices = torch.arange(batch_size, device=seq_emb.device)
             short_term = seq_emb[batch_indices, seq_lengths, :]  # [batch_size, seq_emb_dim]
             features_list.append(short_term)
         
-        # 添加其他用户特征
         if self.user_dense_features:
             dense_features = []
             for feat in self.user_dense_features:
@@ -255,13 +233,8 @@ class SDM(BaseMatchModel):
             if sparse_features:
                 features_list.append(torch.cat(sparse_features, dim=1))
         
-        # 拼接所有特征
         user_features = torch.cat(features_list, dim=1)
-        
-        # 通过user DNN得到最终embedding
         user_emb = self.user_dnn(user_features)
-        
-        # L2 normalization
         user_emb = F.normalize(user_emb, p=2, dim=1)
         
         return user_emb

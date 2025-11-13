@@ -1,4 +1,6 @@
 """
+Base Model & Base Match Model Class
+
 Date: create on 27/10/2025
 Author:
     Yang Zhou,zyaztec@gmail.com
@@ -23,7 +25,8 @@ from reclib.basic.metrics import configure_metrics, evaluate_metrics
 
 from reclib.data.utils import get_column_data
 from reclib.basic.loggers import setup_logger, colorize
-from reclib.utils.tools import get_optimizer_fn, get_loss_fn, get_scheduler_fn
+from reclib.utils.tools import get_optimizer_fn, get_scheduler_fn
+from reclib.loss import get_loss_fn
 
 
 class BaseModel(nn.Module):
@@ -265,7 +268,10 @@ class BaseModel(nn.Module):
         if self.nums_task == 1:
             task_type = self.task if isinstance(self.task, str) else self.task[0]
             loss_value = loss[0] if isinstance(loss, list) else loss
-            self.loss_fn = [get_loss_fn(task_type=task_type, loss=loss_value)]
+            # For ranking and multitask, use pointwise training
+            training_mode = 'pointwise' if self.task_type in ['ranking', 'multitask'] else None
+            # Use task_type directly, not self.task_type for single task
+            self.loss_fn = [get_loss_fn(task_type=task_type, training_mode=training_mode, loss=loss_value)]
         else:
             self.loss_fn = []
             for i in range(self.nums_task):
@@ -276,7 +282,9 @@ class BaseModel(nn.Module):
                 else:
                     loss_value = loss
                 
-                self.loss_fn.append(get_loss_fn(task_type=task_type, loss=loss_value))
+                # Multitask always uses pointwise training
+                training_mode = 'pointwise'
+                self.loss_fn.append(get_loss_fn(task_type=task_type, training_mode=training_mode, loss=loss_value))
         
         # set scheduler
         self.scheduler_fn = get_scheduler_fn(scheduler, self.optimizer_fn, **(scheduler_params or {})) if scheduler else None
@@ -795,6 +803,17 @@ class BaseMatchModel(BaseModel):
     def task_type(self) -> str:
         return 'match'
     
+    @property
+    def support_training_modes(self) -> list[str]:
+        """
+        Returns list of supported training modes for this model.
+        Override in subclasses to restrict training modes.
+        
+        Returns:
+            List of supported modes: ['pointwise', 'pairwise', 'listwise']
+        """
+        return ['pointwise', 'pairwise', 'listwise']
+    
     def __init__(self,
                  user_dense_features: list[DenseFeature] | None = None,
                  user_sparse_features: list[SparseFeature] | None = None,
@@ -875,6 +894,58 @@ class BaseMatchModel(BaseModel):
                 item_input[feature.name] = X_input[feature.name]
         return item_input
     
+    def compile(self, 
+                optimizer = "adam",
+                optimizer_params: dict | None = None,
+                scheduler: str | torch.optim.lr_scheduler._LRScheduler | type[torch.optim.lr_scheduler._LRScheduler] | None = None,
+                scheduler_params: dict | None = None,
+                loss: str | nn.Module | list[str | nn.Module] | None= "bpr"):
+        """
+        Compile match model with optimizer, scheduler, and loss function.
+        Validates that training_mode is supported by the model.
+        """
+        from reclib.loss import validate_training_mode
+        
+        # Validate training mode is supported
+        validate_training_mode(
+            training_mode=self.training_mode,
+            support_training_modes=self.support_training_modes,
+            model_name=self.model_name
+        )
+        
+        # Call parent compile with match-specific logic
+        if optimizer_params is None:
+            optimizer_params = {}
+        
+        self._optimizer_name = optimizer if isinstance(optimizer, str) else optimizer.__class__.__name__
+        self._optimizer_params = optimizer_params
+        if isinstance(scheduler, str):
+            self._scheduler_name = scheduler
+        elif scheduler is not None:
+            self._scheduler_name = scheduler.__class__.__name__ if hasattr(scheduler, '__class__') else str(scheduler)
+        else:
+            self._scheduler_name = None
+        self._scheduler_params = scheduler_params or {}
+        self._loss_config = loss
+        
+        # set optimizer
+        self.optimizer_fn = get_optimizer_fn(
+            optimizer=optimizer, 
+            params=self.parameters(), 
+            **optimizer_params
+        )
+        
+        # Set loss function based on training mode
+        loss_value = loss[0] if isinstance(loss, list) else loss
+        self.loss_fn = [get_loss_fn(
+            task_type='match',
+            training_mode=self.training_mode,
+            loss=loss_value
+        )]
+        
+        # set scheduler
+        self.scheduler_fn = get_scheduler_fn(scheduler, self.optimizer_fn, **(scheduler_params or {})) if scheduler else None
+
     def compute_similarity(self, user_emb: torch.Tensor, item_emb: torch.Tensor) -> torch.Tensor:
         if self.similarity_metric == 'dot':
             if user_emb.dim() == 3 and item_emb.dim() == 3:

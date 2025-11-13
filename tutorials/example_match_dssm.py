@@ -18,7 +18,7 @@ from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 
 # Load generated data
-df = pd.read_csv('../data/match_task.csv')
+df = pd.read_csv('data/match_task_pointwise.csv')
 
 # Parse sequence features from string to list
 for col in df.columns:
@@ -103,8 +103,9 @@ model = DSSM(
     embedding_dim=32,
     dnn_activation='relu',
     dnn_dropout=0.3,
-    training_mode='pointwise',
+    training_mode='pointwise',  
     similarity_metric='cosine',
+    temperature=0.05,  # Add temperature scaling: 1/0.05 = 20x scaling
     device='mps',
     model_id='dssm_exp001',
     embedding_l1_reg=1e-6,
@@ -121,7 +122,7 @@ print(f"Similarity: cosine")
 model.compile(
     optimizer="adam",
     optimizer_params={"lr": 1e-3, "weight_decay": 1e-5},
-    loss="bce"
+    loss="bce",  
 )
 
 print("\n" + "=" * 60)
@@ -132,7 +133,7 @@ model.fit(
     train_data=train_df,
     valid_data=valid_df,
     metrics=['auc', 'gauc', 'logloss'],  # Added GAUC metric
-    epochs=5,
+    epochs=10,
     batch_size=512,
     shuffle=True,
     verbose=1,

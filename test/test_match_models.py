@@ -695,5 +695,168 @@ class TestSDM:
         logger.info(f"SDM with {rnn_type} test successful")
 
 
+class TestTrainingModes:
+    """Test suite for different training modes and loss functions"""
+    
+    @pytest.fixture
+    def simple_features(self):
+        """Create simple features for testing"""
+        user_sparse = [SparseFeature(name='user_id', vocab_size=100, embedding_dim=8)]
+        item_sparse = [SparseFeature(name='item_id', vocab_size=100, embedding_dim=8)]
+        return user_sparse, item_sparse
+    
+    @pytest.mark.parametrize("training_mode", ['pointwise', 'pairwise', 'listwise'])
+    def test_dssm_training_modes(self, simple_features, device, batch_size, training_mode):
+        """Test DSSM with different training modes"""
+        logger.info("=" * 80)
+        logger.info(f"Testing DSSM with {training_mode} training mode")
+        logger.info("=" * 80)
+        
+        user_sparse, item_sparse = simple_features
+        
+        model = DSSM(
+            user_sparse_features=user_sparse,
+            item_sparse_features=item_sparse,
+            embedding_dim=16,
+            training_mode=training_mode,
+            device=device
+        )
+        
+        # Compile with appropriate loss
+        if training_mode == 'pointwise':
+            model.compile(loss='bce')
+        elif training_mode == 'pairwise':
+            model.compile(loss='bpr')
+        elif training_mode == 'listwise':
+            model.compile(loss='sampled_softmax')
+        
+        assert model.training_mode == training_mode
+        assert training_mode in model.support_training_modes
+        
+        logger.info(f"DSSM {training_mode} training mode test successful")
+    
+    def test_mind_only_supports_pointwise(self, device):
+        """Test that MIND only supports pointwise training mode"""
+        logger.info("=" * 80)
+        logger.info("Testing MIND training mode restrictions")
+        logger.info("=" * 80)
+        
+        user_sparse = [SparseFeature(name='user_id', vocab_size=100, embedding_dim=8)]
+        user_sequence = [
+            SequenceFeature(name='user_hist', vocab_size=100, max_len=20, embedding_dim=8, padding_idx=0)
+        ]
+        item_sparse = [SparseFeature(name='item_id', vocab_size=100, embedding_dim=8)]
+        
+        # Should work with pointwise
+        model = MIND(
+            user_sparse_features=user_sparse,
+            user_sequence_features=user_sequence,
+            item_sparse_features=item_sparse,
+            embedding_dim=16,
+            training_mode='pointwise',
+            device=device
+        )
+        
+        assert model.support_training_modes == ['pointwise']
+        
+        # Should fail with pairwise
+        with pytest.raises(ValueError, match="does not support training_mode"):
+            model_pairwise = MIND(
+                user_sparse_features=user_sparse,
+                user_sequence_features=user_sequence,
+                item_sparse_features=item_sparse,
+                embedding_dim=16,
+                training_mode='pairwise',
+                device=device
+            )
+            model_pairwise.compile(loss='bpr')
+        
+        logger.info("MIND training mode restriction test successful")
+    
+    def test_sdm_only_supports_pointwise(self, device):
+        """Test that SDM only supports pointwise training mode"""
+        logger.info("=" * 80)
+        logger.info("Testing SDM training mode restrictions")
+        logger.info("=" * 80)
+        
+        user_sparse = [SparseFeature(name='user_id', vocab_size=100, embedding_dim=8)]
+        user_sequence = [
+            SequenceFeature(name='item_seq', vocab_size=100, max_len=20, embedding_dim=8, padding_idx=0)
+        ]
+        item_sparse = [SparseFeature(name='item_id', vocab_size=100, embedding_dim=8)]
+        
+        # Should work with pointwise
+        model = SDM(
+            user_sparse_features=user_sparse,
+            user_sequence_features=user_sequence,
+            item_sparse_features=item_sparse,
+            embedding_dim=16,
+            training_mode='pointwise',
+            device=device
+        )
+        
+        assert model.support_training_modes == ['pointwise']
+        
+        # Should fail with listwise
+        with pytest.raises(ValueError, match="does not support training_mode"):
+            model_listwise = SDM(
+                user_sparse_features=user_sparse,
+                user_sequence_features=user_sequence,
+                item_sparse_features=item_sparse,
+                embedding_dim=16,
+                training_mode='listwise',
+                device=device
+            )
+            model_listwise.compile(loss='sampled_softmax')
+        
+        logger.info("SDM training mode restriction test successful")
+    
+    @pytest.mark.parametrize("loss_name", ['bpr', 'hinge', 'triplet'])
+    def test_pairwise_losses(self, simple_features, device, batch_size, loss_name):
+        """Test different pairwise loss functions"""
+        logger.info("=" * 80)
+        logger.info(f"Testing {loss_name} loss")
+        logger.info("=" * 80)
+        
+        user_sparse, item_sparse = simple_features
+        
+        model = DSSM(
+            user_sparse_features=user_sparse,
+            item_sparse_features=item_sparse,
+            embedding_dim=16,
+            training_mode='pairwise',
+            device=device
+        )
+        
+        model.compile(loss=loss_name)
+        
+        assert model.training_mode == 'pairwise'
+        
+        logger.info(f"{loss_name} loss test successful")
+    
+    @pytest.mark.parametrize("loss_name", ['sampled_softmax', 'infonce'])
+    def test_listwise_losses(self, simple_features, device, batch_size, loss_name):
+        """Test different listwise loss functions"""
+        logger.info("=" * 80)
+        logger.info(f"Testing {loss_name} loss")
+        logger.info("=" * 80)
+        
+        user_sparse, item_sparse = simple_features
+        
+        model = DSSM(
+            user_sparse_features=user_sparse,
+            item_sparse_features=item_sparse,
+            embedding_dim=16,
+            training_mode='listwise',
+            device=device
+        )
+        
+        model.compile(loss=loss_name)
+        
+        assert model.training_mode == 'listwise'
+        
+        logger.info(f"{loss_name} loss test successful")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
