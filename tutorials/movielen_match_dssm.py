@@ -14,7 +14,6 @@ from reclib.models.match.dssm import DSSM
 
 from reclib.data.utils import build_eval_candidates
 
-
 def example_movielens_100k_dssm():
     df = pd.read_csv("dataset/movielens_100k.csv")
 

@@ -405,6 +405,18 @@ class BaseModel(nn.Module):
         self._verbose = verbose
 
         self._set_metrics(metrics) # add self.metrics, self.task_specific_metrics, self.best_metrics_mode, self.early_stopper
+        
+        # Print DataProcessor summary first if it exists in train_data
+        if isinstance(train_data, DataLoader):
+            # Check if the dataset has a processor (for streaming FileDataset)
+            if hasattr(train_data, 'dataset'):
+                dataset = train_data.dataset
+                if hasattr(dataset, 'processor'):
+                    processor = getattr(dataset, 'processor', None)
+                    if processor is not None and hasattr(processor, 'summary') and hasattr(processor, 'is_fitted') and processor.is_fitted:
+                        processor.summary()
+        
+        # Print model summary
         self.summary()
 
         if not isinstance(train_data, DataLoader):
@@ -428,16 +440,22 @@ class BaseModel(nn.Module):
         
         try:
             self._steps_per_epoch = len(train_loader)
+            is_streaming = False
         except TypeError:
-            self._steps_per_epoch = None 
+            self._steps_per_epoch = None
+            is_streaming = True
         
         self._epoch_index = 0
         self._stop_training = False
         self._best_metric = float('-inf') if self.best_metrics_mode == 'max' else float('inf')
         
         if self._verbose:
+            logging.info("")
             logging.info(colorize("=" * 80, color="bright_green", bold=True))
-            logging.info(colorize(f"Start training", color="bright_green", bold=True))
+            if is_streaming:
+                logging.info(colorize(f"Start training (Streaming Mode)", color="bright_green", bold=True))
+            else:
+                logging.info(colorize(f"Start training", color="bright_green", bold=True))
             logging.info(colorize("=" * 80, color="bright_green", bold=True))
             logging.info("")
             logging.info(colorize(f"Model device: {self.device}", color="bright_green"))

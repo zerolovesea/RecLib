@@ -49,6 +49,7 @@ class DataProcessor:
         self.target_features: Dict[str, Dict[str, Any]] = {}
         
         self.is_fitted = False
+        self._transform_summary_printed = False  # Track if summary has been printed during transform
         
         self.scalers: Dict[str, Any] = {}
         self.label_encoders: Dict[str, LabelEncoder] = {}
@@ -431,7 +432,6 @@ class DataProcessor:
     ) -> Union[pd.DataFrame, Dict[str, np.ndarray]]:
         logger = logging.getLogger()
         
-        self.summary()
 
         if not self.is_fitted:
             raise ValueError("DataProcessor must be fitted before transform")
@@ -489,8 +489,6 @@ class DataProcessor:
             series_data = pd.Series(data_dict[name], name=name)
             processed = self._process_target_transform(series_data, config)
             result_dict[name] = processed
-
-        logger.info(colorize("DataProcessor transformed successfully", color="green", bold=True))
         
         if return_dict:
             return result_dict
