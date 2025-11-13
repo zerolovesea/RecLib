@@ -67,3 +67,55 @@ def split_dict_random(data_dict: dict, test_size: float=0.2, random_state:int|No
     train_dict = {k: take(v, train_idx) for k, v in data_dict.items()}
     test_dict  = {k: take(v, test_idx)  for k, v in data_dict.items()}
     return train_dict, test_dict
+
+
+def build_eval_candidates(
+    df_all: pd.DataFrame,
+    user_col: str,
+    item_col: str,
+    label_col: str,
+    user_features: pd.DataFrame,
+    item_features: pd.DataFrame,
+    num_pos_per_user: int = 5,
+    num_neg_per_pos: int = 50,
+    random_seed: int = 2025,
+) -> pd.DataFrame:
+    rng = np.random.default_rng(random_seed)
+
+    users = df_all[user_col].unique()
+    all_items = item_features[item_col].unique()
+
+    rows = []
+
+    user_hist_items = {
+        u: df_all[df_all[user_col] == u][item_col].unique()
+        for u in users
+    }
+
+    for u in users:
+        df_user = df_all[df_all[user_col] == u]
+        pos_items = df_user[df_user[label_col] == 1][item_col].unique()
+        if len(pos_items) == 0:
+            continue
+
+        pos_items = pos_items[:num_pos_per_user]
+        seen_items = set(user_hist_items[u])
+
+        neg_pool = np.setdiff1d(all_items, np.fromiter(seen_items, dtype=all_items.dtype))
+        if len(neg_pool) == 0:
+            continue
+
+        for pos in pos_items:
+            if len(neg_pool) <= num_neg_per_pos:
+                neg_items = neg_pool
+            else:
+                neg_items = rng.choice(neg_pool, size=num_neg_per_pos, replace=False)
+
+            rows.append((u, pos, 1))
+            for ni in neg_items:
+                rows.append((u, ni, 0))
+
+    eval_df = pd.DataFrame(rows, columns=[user_col, item_col, label_col])
+    eval_df = eval_df.merge(user_features, on=user_col, how='left')
+    eval_df = eval_df.merge(item_features, on=item_col, how='left')
+    return eval_df

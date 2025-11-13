@@ -421,7 +421,7 @@ class DataProcessor:
             self._process_target_fit(data[name], config)
         
         self.is_fitted = True
-        logger.info(colorize("DataProcessor fitted successfully!", color="green", bold=True))
+        logger.info(colorize("DataProcessor fitted successfully", color="green", bold=True))
         return self
         
     def transform(
@@ -431,6 +431,8 @@ class DataProcessor:
     ) -> Union[pd.DataFrame, Dict[str, np.ndarray]]:
         logger = logging.getLogger()
         
+        self.summary()
+
         if not self.is_fitted:
             raise ValueError("DataProcessor must be fitted before transform")
         
@@ -488,6 +490,8 @@ class DataProcessor:
             processed = self._process_target_transform(series_data, config)
             result_dict[name] = processed
 
+        logger.info(colorize("DataProcessor transformed successfully", color="green", bold=True))
+        
         if return_dict:
             return result_dict
         else:
