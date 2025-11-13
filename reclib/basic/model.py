@@ -756,6 +756,11 @@ class BaseModel(nn.Module):
         logger.info(colorize("[2] Model Parameters", color="cyan", bold=True))
         logger.info(colorize("-" * 80, color="cyan"))
         
+        # Model Architecture
+        logger.info("Model Architecture:")
+        logger.info(str(self))
+        logger.info("")
+        
         total_params = sum(p.numel() for p in self.parameters())
         trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
         non_trainable_params = total_params - trainable_params
