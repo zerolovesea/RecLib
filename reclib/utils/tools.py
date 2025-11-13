@@ -1,11 +1,16 @@
+"""
+Utilities for RecLib
+
+Date: create on 05/11/2025
+Author:
+    Yang Zhou,zyaztec@gmail.com
+"""
+
 import numpy as np
 import torch
 import torch.nn as nn
 from typing import Iterator, Iterable
-import pandas as pd
 
-from sklearn.metrics import roc_auc_score, log_loss, accuracy_score
-from collections import OrderedDict
 
 def get_auto_embedding_dim(num_classes: int) -> int:
     """ Calculate the dim of embedding vector according to number of classes in the category
@@ -83,35 +88,6 @@ def get_optimizer_fn(
     elif isinstance(optimizer, torch.optim.Optimizer):
         optimizer_fn = optimizer
     return optimizer_fn
-
-def get_loss_fn(task_type: str = "binary",
-        loss: str | nn.Module | None = "bce",):
-    
-    if loss is None:
-        if task_type == "binary":
-            loss_fn = nn.BCELoss()
-        elif task_type == "multiclass":
-            loss_fn = nn.CrossEntropyLoss()
-        elif task_type == "regression":
-            loss_fn = nn.MSELoss()
-        else:
-            raise ValueError(f"Unsupported task_type: {task_type}")
-    elif isinstance(loss, str):
-        if loss == "bce" or loss == "binary_crossentropy":
-            loss_fn = nn.BCELoss()
-        elif loss == "mse":
-            loss_fn = nn.MSELoss()
-        elif loss == "mae":
-            loss_fn = nn.L1Loss()
-        elif loss == "crossentropy" or loss == "ce":
-            loss_fn = nn.CrossEntropyLoss()
-        else:
-            raise NotImplementedError(f"Unsupported loss function: {loss}")
-    elif isinstance(loss, nn.Module):
-        loss_fn = loss
-    else:
-        raise TypeError(f"Invalid loss type: {type(loss)}")
-    return loss_fn
 
 def get_scheduler_fn(scheduler, optimizer, **scheduler_params):
     if isinstance(scheduler, str):
