@@ -14,7 +14,7 @@ from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
 from sklearn.model_selection import train_test_split
 
 # Load generated data
-df = pd.read_csv('../data/ranking_task.csv')
+df = pd.read_csv('dataset/ranking_task.csv')
 
 # Parse sequence features from string to list
 for col in df.columns:
