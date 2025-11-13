@@ -16,7 +16,7 @@ from sklearn.model_selection import train_test_split
 
 
 # Load generated data
-df = pd.read_csv('../data/multitask_task.csv')
+df = pd.read_csv('dataset/multitask_task.csv')
 
 # Parse sequence features from string to list
 for col in df.columns:

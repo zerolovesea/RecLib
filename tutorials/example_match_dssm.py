@@ -18,9 +18,8 @@ from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 
 # Load generated data
-df = pd.read_csv('data/match_task_pointwise.csv')
+df = pd.read_csv('dataset/match_task.csv')
 
-# Parse sequence features from string to list
 for col in df.columns:
     if 'sequence' in col:
         df[col] = df[col].apply(lambda x: eval(x) if isinstance(x, str) else x)
@@ -84,9 +83,6 @@ item_sparse_features.extend([
     for i in range(4)
 ])
 
-print(f"\nUser features: {len(user_dense_features)} dense + {len(user_sparse_features)} sparse (including user_id) + {len(user_sequence_features)} sequence")
-print(f"Item features: {len(item_dense_features)} dense + {len(item_sparse_features)} sparse (including item_id)")
-
 print("\n" + "=" * 60)
 print("Build DSSM Model")
 print("=" * 60)
@@ -105,25 +101,14 @@ model = DSSM(
     dnn_dropout=0.3,
     training_mode='pointwise',  
     similarity_metric='cosine',
-    temperature=0.05,  # Add temperature scaling: 1/0.05 = 20x scaling
+    temperature=0.05,  
     device='mps',
     model_id='dssm_exp001',
-    embedding_l1_reg=1e-6,
-    embedding_l2_reg=1e-5,
-    dense_l1_reg=1e-5,
-    dense_l2_reg=1e-4,
 )
 
 print(f"Model: {model.model_name}")
 print(f"Training mode: pointwise")
 print(f"Similarity: cosine")
-
-# Compile model
-model.compile(
-    optimizer="adam",
-    optimizer_params={"lr": 1e-3, "weight_decay": 1e-5},
-    loss="bce",  
-)
 
 print("\n" + "=" * 60)
 print("Start Training with GAUC metric")
