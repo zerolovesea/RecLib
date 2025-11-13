@@ -14,6 +14,7 @@ TASK_DEFAULT_METRICS = {
     'binary': ['auc', 'gauc', 'ks', 'logloss', 'accuracy', 'precision', 'recall', 'f1'],
     'regression': ['mse', 'mae', 'rmse', 'r2', 'mape'],
     'multilabel': ['auc', 'hamming_loss', 'subset_accuracy', 'micro_f1', 'macro_f1'],
+    'matching': ['auc', 'gauc', 'precision@10', 'hitrate@10', 'map@10','cosine']+ [f'recall@{k}' for k in (5,10,20)] + [f'ndcg@{k}' for k in (5,10,20)] + [f'mrr@{k}' for k in (5,10,20)]
 }
 
 
@@ -91,6 +92,203 @@ def compute_gauc(
     gauc = float(np.sum(user_aucs * user_weights) / np.sum(user_weights))
     
     return gauc
+
+
+def _group_indices_by_user(user_ids: np.ndarray, n_samples: int) -> list[np.ndarray]:
+    """Group sample indices by user_id. If user_ids is None, treat all as one group."""
+    if user_ids is None:
+        return [np.arange(n_samples)]
+    
+    user_ids = np.asarray(user_ids)
+    if user_ids.shape[0] != n_samples:
+        logging.warning(
+            "user_ids length (%d) != number of samples (%d), "
+            "treating all samples as a single group for ranking metrics.",
+            user_ids.shape[0],
+            n_samples,
+        )
+        return [np.arange(n_samples)]
+    
+    unique_users = np.unique(user_ids)
+    groups = [np.where(user_ids == u)[0] for u in unique_users]
+    return groups
+
+
+def _compute_precision_at_k(y_true: np.ndarray, y_pred: np.ndarray, user_ids: np.ndarray | None, k: int) -> float:
+    y_true = (y_true > 0).astype(int)
+    n = len(y_true)
+    groups = _group_indices_by_user(user_ids, n)
+    
+    precisions = []
+    for idx in groups:
+        if idx.size == 0:
+            continue
+        k_user = min(k, idx.size)
+        scores = y_pred[idx]
+        labels = y_true[idx]
+        order = np.argsort(scores)[::-1]
+        topk = order[:k_user]
+        hits = labels[topk].sum()
+        precisions.append(hits / float(k_user))
+    
+    return float(np.mean(precisions)) if precisions else 0.0
+
+
+def _compute_recall_at_k(y_true: np.ndarray, y_pred: np.ndarray, user_ids: np.ndarray | None, k: int) -> float:
+    y_true = (y_true > 0).astype(int)
+    n = len(y_true)
+    groups = _group_indices_by_user(user_ids, n)
+    
+    recalls = []
+    for idx in groups:
+        if idx.size == 0:
+            continue
+        labels = y_true[idx]
+        num_pos = labels.sum()
+        if num_pos == 0:
+            continue  # 跳过没有正样本的用户
+        scores = y_pred[idx]
+        order = np.argsort(scores)[::-1]
+        k_user = min(k, idx.size)
+        topk = order[:k_user]
+        hits = labels[topk].sum()
+        recalls.append(hits / float(num_pos))
+    
+    return float(np.mean(recalls)) if recalls else 0.0
+
+
+def _compute_hitrate_at_k(y_true: np.ndarray, y_pred: np.ndarray, user_ids: np.ndarray | None, k: int) -> float:
+    y_true = (y_true > 0).astype(int)
+    n = len(y_true)
+    groups = _group_indices_by_user(user_ids, n)
+    
+    hits_per_user = []
+    for idx in groups:
+        if idx.size == 0:
+            continue
+        labels = y_true[idx]
+        if labels.sum() == 0:
+            continue  # 无正样本用户不计入
+        scores = y_pred[idx]
+        order = np.argsort(scores)[::-1]
+        k_user = min(k, idx.size)
+        topk = order[:k_user]
+        hits = labels[topk].sum()
+        hits_per_user.append(1.0 if hits > 0 else 0.0)
+    
+    return float(np.mean(hits_per_user)) if hits_per_user else 0.0
+
+
+def _compute_mrr_at_k(y_true: np.ndarray, y_pred: np.ndarray, user_ids: np.ndarray | None, k: int) -> float:
+    y_true = (y_true > 0).astype(int)
+    n = len(y_true)
+    groups = _group_indices_by_user(user_ids, n)
+    
+    mrrs = []
+    for idx in groups:
+        if idx.size == 0:
+            continue
+        labels = y_true[idx]
+        if labels.sum() == 0:
+            continue
+        scores = y_pred[idx]
+        order = np.argsort(scores)[::-1]
+        k_user = min(k, idx.size)
+        topk = order[:k_user]
+        ranked_labels = labels[order]
+        
+        rr = 0.0
+        for rank, lab in enumerate(ranked_labels[:k_user], start=1):
+            if lab > 0:
+                rr = 1.0 / rank
+                break
+        mrrs.append(rr)
+    
+    return float(np.mean(mrrs)) if mrrs else 0.0
+
+
+def _compute_dcg_at_k(labels: np.ndarray, k: int) -> float:
+    k_user = min(k, labels.size)
+    if k_user == 0:
+        return 0.0
+    gains = (2 ** labels[:k_user] - 1).astype(float)
+    discounts = np.log2(np.arange(2, k_user + 2))
+    return float(np.sum(gains / discounts))
+
+
+def _compute_ndcg_at_k(y_true: np.ndarray, y_pred: np.ndarray, user_ids: np.ndarray | None, k: int) -> float:
+    y_true = (y_true > 0).astype(int)
+    n = len(y_true)
+    groups = _group_indices_by_user(user_ids, n)
+    
+    ndcgs = []
+    for idx in groups:
+        if idx.size == 0:
+            continue
+        labels = y_true[idx]
+        if labels.sum() == 0:
+            continue
+        scores = y_pred[idx]
+        
+        order = np.argsort(scores)[::-1]
+        ranked_labels = labels[order]
+        dcg = _compute_dcg_at_k(ranked_labels, k)
+        
+        # ideal DCG
+        ideal_labels = np.sort(labels)[::-1]
+        idcg = _compute_dcg_at_k(ideal_labels, k)
+        if idcg == 0.0:
+            continue
+        ndcgs.append(dcg / idcg)
+    
+    return float(np.mean(ndcgs)) if ndcgs else 0.0
+
+
+def _compute_map_at_k(y_true: np.ndarray, y_pred: np.ndarray, user_ids: np.ndarray | None, k: int) -> float:
+    """Mean Average Precision@K."""
+    y_true = (y_true > 0).astype(int)
+    n = len(y_true)
+    groups = _group_indices_by_user(user_ids, n)
+    
+    aps = []
+    for idx in groups:
+        if idx.size == 0:
+            continue
+        labels = y_true[idx]
+        num_pos = labels.sum()
+        if num_pos == 0:
+            continue
+        
+        scores = y_pred[idx]
+        order = np.argsort(scores)[::-1]
+        k_user = min(k, idx.size)
+        
+        hits = 0
+        sum_precisions = 0.0
+        for rank, i in enumerate(order[:k_user], start=1):
+            if labels[i] > 0:
+                hits += 1
+                sum_precisions += hits / float(rank)
+        
+        if hits == 0:
+            aps.append(0.0)
+        else:
+            aps.append(sum_precisions / float(num_pos))
+    
+    return float(np.mean(aps)) if aps else 0.0
+
+
+def _compute_cosine_separation(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    y_true = (y_true > 0).astype(int)
+    pos_mask = y_true == 1
+    neg_mask = y_true == 0
+    
+    if not np.any(pos_mask) or not np.any(neg_mask):
+        return 0.0
+    
+    pos_mean = float(np.mean(y_pred[pos_mask]))
+    neg_mean = float(np.mean(y_pred[neg_mask]))
+    return pos_mean - neg_mean
 
 
 def configure_metrics(
@@ -177,6 +375,43 @@ def compute_single_metric(
     y_p_binary = (y_pred > 0.5).astype(int)
     
     try:
+        metric_lower = metric.lower()
+        
+        # recall@K
+        if metric_lower.startswith('recall@'):
+            k = int(metric_lower.split('@')[1])
+            return _compute_recall_at_k(y_true, y_pred, user_ids, k)
+
+        # precision@K
+        if metric_lower.startswith('precision@'):
+            k = int(metric_lower.split('@')[1])
+            return _compute_precision_at_k(y_true, y_pred, user_ids, k)
+
+        # hitrate@K / hr@K
+        if metric_lower.startswith('hitrate@') or metric_lower.startswith('hr@'):
+            k_str = metric_lower.split('@')[1]
+            k = int(k_str)
+            return _compute_hitrate_at_k(y_true, y_pred, user_ids, k)
+
+        # mrr@K
+        if metric_lower.startswith('mrr@'):
+            k = int(metric_lower.split('@')[1])
+            return _compute_mrr_at_k(y_true, y_pred, user_ids, k)
+
+        # ndcg@K
+        if metric_lower.startswith('ndcg@'):
+            k = int(metric_lower.split('@')[1])
+            return _compute_ndcg_at_k(y_true, y_pred, user_ids, k)
+
+        # map@K
+        if metric_lower.startswith('map@'):
+            k = int(metric_lower.split('@')[1])
+            return _compute_map_at_k(y_true, y_pred, user_ids, k)
+
+        # cosine（matching 场景下的简单相似度分离度）
+        if metric_lower == 'cosine':
+            return _compute_cosine_separation(y_true, y_pred)
+        
         if metric == 'auc':
             value = float(roc_auc_score(y_true, y_pred, average='macro' if task_type == 'multilabel' else None))
         elif metric == 'gauc':
@@ -217,7 +452,6 @@ def compute_single_metric(
         value = 0.0
     
     return value
-
 
 def evaluate_metrics(
     y_true: np.ndarray | None,
