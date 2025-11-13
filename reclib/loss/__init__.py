@@ -10,9 +10,10 @@ from reclib.loss.match_losses import (
     ApproxNDCGLoss,
 )
 
-from reclib.loss.utils import (
+from reclib.loss.loss_utils import (
     get_loss_fn,
     validate_training_mode,
+    VALID_TASK_TYPES,
 )
 
 __all__ = [
@@ -30,4 +31,5 @@ __all__ = [
     # Utilities
     'get_loss_fn',
     'validate_training_mode',
+    'VALID_TASK_TYPES',
 ]

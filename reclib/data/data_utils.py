@@ -1,6 +1,23 @@
+"""
+Data processing utilities for RecLib
+
+This module provides utilities for data loading, preprocessing, and manipulation:
+- collate_fn: Custom collate function for batching
+- get_column_data: Extract column data from various formats
+- split_dict_random: Random split of dict data
+- build_eval_candidates: Build evaluation candidates for recommendation
+
+Date: create on 13/11/2025
+Author:
+    Yang Zhou, zyaztec@gmail.com
+"""
+
 import torch
+import logging
 import numpy as np
 import pandas as pd
+from torch.utils.data import DataLoader, TensorDataset
+from reclib.basic.loggers import setup_logger, colorize
 
 def collate_fn(batch):
     """
