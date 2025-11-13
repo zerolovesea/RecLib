@@ -18,6 +18,9 @@ from reclib.loss.match_losses import (
     InfoNCELoss
 )
 
+# Valid task types for validation
+VALID_TASK_TYPES = ['binary', 'multiclass', 'regression', 'multivariate_regression', 'match', 'ranking', 'multitask', 'multilabel']
+
 
 def get_loss_fn(
     task_type: str = "binary",

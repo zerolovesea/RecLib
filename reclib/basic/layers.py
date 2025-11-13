@@ -3,11 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from typing import Union
-
 from itertools import combinations
-from .activation import activation_layer
-from ..utils.tools import get_initializer_fn
-from .features import DenseFeature, SparseFeature, SequenceFeature
+
+from reclib.basic.activation import activation_layer
+from reclib.utils.initializer import get_initializer_fn
+from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 
 class PredictionLayer(nn.Module):
@@ -382,8 +382,6 @@ class BiLinearInteractionLayer(nn.Module):
         elif self.bilinear_type == "field_interaction":
             bilinear_list = [self.bilinear_layer[i](v[0])*v[1] for i,v in enumerate(combinations(feature_emb, 2))]
         return torch.cat(bilinear_list, dim=1)
-
-
 
 
 class MultiInterestSA(nn.Module):

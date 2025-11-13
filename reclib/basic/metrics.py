@@ -2,13 +2,16 @@
 Metrics computation and configuration for model evaluation.
 """
 import logging
-from typing import Literal
 import numpy as np
 from sklearn.metrics import (
     roc_auc_score, log_loss, mean_squared_error, mean_absolute_error,
     accuracy_score, precision_score, recall_score, f1_score, r2_score,
 )
 
+
+# Classification and regression metric sets for validation
+CLASSIFICATION_METRICS = {'auc', 'gauc', 'ks', 'logloss', 'accuracy', 'acc', 'precision', 'recall', 'f1', 'micro_f1', 'macro_f1'}
+REGRESSION_METRICS = {'mse', 'mae', 'rmse', 'r2', 'mape', 'msle'}
 
 TASK_DEFAULT_METRICS = {
     'binary': ['auc', 'gauc', 'ks', 'logloss', 'accuracy', 'precision', 'recall', 'f1'],
@@ -356,10 +359,30 @@ def configure_metrics(
 def get_best_metric_mode(first_metric: str, primary_task: str) -> str:
     """Determine if metric should be maximized or minimized."""
     first_metric_lower = first_metric.lower()
+    
+    # Metrics that should be maximized
     if first_metric_lower in {'auc', 'gauc', 'ks', 'accuracy', 'acc', 'precision', 'recall', 'f1', 'r2', 'micro_f1', 'macro_f1'}:
         return 'max'
+    
+    # Ranking metrics that should be maximized (with @K suffix)
+    if (first_metric_lower.startswith('recall@') or 
+        first_metric_lower.startswith('precision@') or 
+        first_metric_lower.startswith('hitrate@') or 
+        first_metric_lower.startswith('hr@') or 
+        first_metric_lower.startswith('mrr@') or 
+        first_metric_lower.startswith('ndcg@') or 
+        first_metric_lower.startswith('map@')):
+        return 'max'
+    
+    # Cosine separation should be maximized
+    if first_metric_lower == 'cosine':
+        return 'max'
+    
+    # Metrics that should be minimized
     if first_metric_lower in {'logloss', 'mse', 'mae', 'rmse', 'mape', 'msle'}:
         return 'min'
+    
+    # Default based on task type
     if primary_task == 'regression':
         return 'min'
     return 'max'

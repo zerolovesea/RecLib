@@ -1,5 +1,5 @@
 from typing import Optional
-from reclib.utils.tools import get_auto_embedding_dim
+from reclib.utils import get_auto_embedding_dim
 
 class BaseFeature(object):
     def __repr__(self):
