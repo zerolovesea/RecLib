@@ -11,7 +11,7 @@ from typing import Iterator, Literal, Union, Optional
 from torch.utils.data import DataLoader, TensorDataset, IterableDataset
 
 from reclib.data.preprocessor import DataProcessor
-from reclib.data.utils import get_column_data, collate_fn
+from reclib.data import get_column_data, collate_fn
 
 from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
 from reclib.basic.loggers import colorize
@@ -52,29 +52,38 @@ class FileDataset(IterableDataset):
     
     def __iter__(self) -> Iterator[tuple]:
         self.current_file_index = 0
+        self._file_pbar = None
         
-        # Log total files info at the beginning
+        # Create progress bar for file processing when multiple files
         if self.total_files > 1:
-            logging.info(colorize(f"Loading data from {self.total_files} files...", color="cyan", bold=True))
-        
-        # Calculate log interval (10% or at least every 1 file)
-        log_interval = max(1, self.total_files // 10)
+            self._file_pbar = tqdm.tqdm(
+                total=self.total_files, 
+                desc="Files", 
+                unit="file",
+                position=0,
+                leave=True,
+                bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'
+            )
         
         for file_path in self.file_paths:
             self.current_file_index += 1
             
-            # Log only at intervals or for single file
-            file_name = os.path.basename(file_path)
-            if self.total_files == 1:
+            # Update file progress bar
+            if self._file_pbar is not None:
+                self._file_pbar.update(1)
+            elif self.total_files == 1:
+                # For single file, log the file name
+                file_name = os.path.basename(file_path)
                 logging.info(colorize(f"Processing file: {file_name}", color="cyan"))
-            elif self.current_file_index % log_interval == 0 or self.current_file_index == self.total_files:
-                progress_pct = (self.current_file_index / self.total_files) * 100
-                tqdm.tqdm.write(colorize(f"  [{self.current_file_index}/{self.total_files}] ({progress_pct:.0f}%) {file_name}", color="cyan"))
             
             if self.file_type == 'csv':
                 yield from self._read_csv_chunks(file_path)
             elif self.file_type == 'parquet':
                 yield from self._read_parquet_chunks(file_path)
+        
+        # Close file progress bar
+        if self._file_pbar is not None:
+            self._file_pbar.close()
     
     def _read_csv_chunks(self, file_path: str) -> Iterator[tuple]:
         chunk_iterator = pd.read_csv(file_path, chunksize=self.chunk_size)
@@ -202,7 +211,8 @@ class RecDataLoader:
     Supports multiple input formats: dict, DataFrame, CSV files, Parquet files, and directories.
     Optionally supports DataProcessor for on-the-fly data transformation.
 
-    用于推荐模型的自定义DataLoader，支持多种输入格式：字典、DataFrame、CSV文件、Parquet文件和目录
+    RecLib的自定义DataLoader，构建实例，并使用create_dataloader方法将不同的数据格式转换为统一的DataLoader
+    
     
     Examples:
         >>> # 创建RecDataLoader
