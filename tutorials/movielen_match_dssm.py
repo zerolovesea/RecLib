@@ -36,6 +36,7 @@ def example_movielens_100k_dssm():
     for col in user_dense_cols:
         processor.add_numeric_feature(col, scaler='minmax')
 
+    print("fit transform will cost some time...")
     df = processor.fit_transform(df, return_dict=False)
 
     print("\nTransformed head:")
@@ -69,7 +70,7 @@ def example_movielens_100k_dssm():
     user_features = df[user_feature_cols].drop_duplicates('user_id')
     item_features = df[item_feature_cols].drop_duplicates('item_id')
 
-    # 构造评估用候选集：每个 user 若干正样本 + 多个负样本，并补齐所有特征列
+    # build evaluation candidates
     valid_df = build_eval_candidates(
         df_all=df_valid_all,
         user_col='user_id',
@@ -115,7 +116,7 @@ def example_movielens_100k_dssm():
         train_data=train_df,          
         valid_data=valid_df,          
         metrics=['auc', 'gauc', 'recall@5', 'hitrate@5', 'mrr@5', 'ndcg@5'],
-        epochs=20,
+        epochs=10,
         batch_size=256,
         shuffle=True
     )

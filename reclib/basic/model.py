@@ -50,7 +50,7 @@ class BaseModel(nn.Module):
                  embedding_l2_reg: float = 0.0, 
                  dense_l2_reg: float = 0.0,
                  early_stop_patience: int = 20, 
-                 model_id: str = 'baseline'):
+                 model_id: str = 'baseline'): 
         
         super(BaseModel, self).__init__()
 
@@ -90,26 +90,12 @@ class BaseModel(nn.Module):
         
         checkpoint_dir = os.path.abspath(os.path.join(project_root, "..", "checkpoints"))
         os.makedirs(checkpoint_dir, exist_ok=True)
-        
-        self.checkpoint = os.path.join(
-            checkpoint_dir,
-            f"{self.model_name}_{self.model_id}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.model"
-        )
-
-        self.best = os.path.join(
-            checkpoint_dir,
-            f"{self.model_name}_{self.model_id}_best.model"
-        )
-
+        self.checkpoint = os.path.join(checkpoint_dir, f"{self.model_name}_{self.model_id}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.model")
+        self.best = os.path.join(checkpoint_dir, f"{self.model_name}_{self.model_id}_best.model")
 
         self._logger_initialized = False
         self._verbose = 1
-        self.best = os.path.join(
-            checkpoint_dir,
-            f"{self.model_name}_{self.model_id}_best.model"
-        )
 
-    # register regularization weights to lists
     def _register_regularization_weights(self, 
                                         embedding_attr: str = 'embedding',
                                         exclude_modules: list[str] | None = [], # modules wont add regularization, example: ['fm', 'lr'] / ['fm.fc'] / etc.
@@ -151,8 +137,6 @@ class BaseModel(nn.Module):
             if isinstance(module, nn.Linear):
                 self._regularization_weights.append(module.weight)
 
-
-    # compute regularization loss 
     def add_reg_loss(self) -> torch.Tensor:
         reg_loss = torch.tensor(0.0, device=self.device)
         
@@ -174,9 +158,7 @@ class BaseModel(nn.Module):
         
         return reg_loss
 
-
-
-    def _to_tensor(self, value, dtype: torch.dtype | None = None, device: str | torch.device | None = None) -> torch.Tensor:
+    def _to_tensor(self, value, dtype: torch.dtype | None = None, device: str | torch.device | None = None) -> torch.Tensor:        
         if value is None:
             raise ValueError("Cannot convert None to tensor.")
         if isinstance(value, torch.Tensor):
@@ -216,11 +198,13 @@ class BaseModel(nn.Module):
                 if target_data is None:
                     continue
                 target_tensor = self._to_tensor(target_data, dtype=torch.float32)
+                
                 if target_tensor.dim() > 1:
                     target_tensor = target_tensor.view(target_tensor.size(0), -1)
                     target_tensors.extend(torch.chunk(target_tensor, chunks=target_tensor.shape[1], dim=1))
                 else:
                     target_tensors.append(target_tensor.view(-1, 1))
+
             if target_tensors:
                 stacked = torch.cat(target_tensors, dim=1)
                 if stacked.shape[1] == 1:
@@ -569,7 +553,7 @@ class BaseModel(nn.Module):
         self._verbose = verbose
         self._set_metrics(metrics) # add self.metrics, self.task_specific_metrics, self.best_metrics_mode, self.early_stopper
         
-        # Validate task configuration before training
+        # Assert before training
         self._validate_task_configuration()
         
         if self._verbose:
@@ -688,10 +672,7 @@ class BaseModel(nn.Module):
             
             if valid_loader is not None:
                 # Pass user_ids only if needed for GAUC metric
-                val_metrics = self.evaluate(
-                    valid_loader, 
-                    user_ids=valid_user_ids if needs_user_ids else None
-                ) # {'auc': 0.75, 'logloss': 0.45} or {'auc_target1': 0.75, 'logloss_target1': 0.45, 'mse_target2': 3.2}
+                val_metrics = self.evaluate(valid_loader, user_ids=valid_user_ids if needs_user_ids else None) # {'auc': 0.75, 'logloss': 0.45} or {'auc_target1': 0.75, 'logloss_target1': 0.45, 'mse_target2': 3.2}
             
                 if self._verbose:
                     if self.nums_task == 1:
@@ -840,7 +821,8 @@ class BaseModel(nn.Module):
             if compute_metrics:
                 if y_true is not None:
                     y_true_list.append(y_true.detach().cpu().numpy())
-                if y_pred is not None:
+                # For pairwise/listwise mode, y_pred is a tuple of embeddings, skip metric collection during training
+                if y_pred is not None and isinstance(y_pred, torch.Tensor):
                     y_pred_list.append(y_pred.detach().cpu().numpy())
             
             num_batches += 1
@@ -938,7 +920,8 @@ class BaseModel(nn.Module):
                 
                 if y_true is not None:
                     y_true_list.append(y_true.cpu().numpy())
-                if y_pred is not None:
+                # Skip if y_pred is not a tensor (e.g., tuple in pairwise mode, though this shouldn't happen in eval mode)
+                if y_pred is not None and isinstance(y_pred, torch.Tensor):
                     y_pred_list.append(y_pred.cpu().numpy())
 
         if self._verbose:
@@ -1025,7 +1008,6 @@ class BaseModel(nn.Module):
         state_dict = torch.load(checkpoint, map_location="cpu")
         self.load_state_dict(state_dict)
 
-
     def summary(self):
         logger = logging.getLogger()
         
@@ -1074,7 +1056,6 @@ class BaseModel(nn.Module):
                 max_len = feat.max_len if hasattr(feat, 'max_len') else 'N/A'
                 logger.info(f"  {i:<4} {feat.name:<{name_width}} {str(vocab_size):>12} {feat.embedding_name:>{embed_name_width}} {str(embed_dim):>10} {str(max_len):>10}")
         
-
         logger.info("")
         logger.info(colorize("[2] Model Parameters", color="cyan", bold=True))
         logger.info(colorize("-" * 80, color="cyan"))
