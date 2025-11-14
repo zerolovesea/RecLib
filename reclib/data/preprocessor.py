@@ -1,10 +1,19 @@
+"""
+DataProcessor for data preprocessing including numeric, sparse, sequence features and target processing.
+
+Date: create on 13/11/2025
+Author:
+    Yang Zhou, zyaztec@gmail.com
+"""
+
+import os
 import pandas as pd
 import numpy as np
 import pickle
-import json
 import hashlib
-import os
-from typing import Dict, List, Union, Optional, Literal, Any
+import logging
+
+from typing import Dict, Union, Optional, Literal, Any
 from sklearn.preprocessing import (
     StandardScaler, 
     MinMaxScaler, 
@@ -12,8 +21,7 @@ from sklearn.preprocessing import (
     MaxAbsScaler,
     LabelEncoder
 )
-import logging
-import warnings
+
 
 from reclib.basic.loggers import setup_logger, colorize
 
@@ -21,9 +29,6 @@ from reclib.basic.loggers import setup_logger, colorize
 class DataProcessor:
     """DataProcessor for data preprocessing including numeric, sparse, sequence features and target processing.
     
-       DataProcesso类用于数据预处理，注册不同类型的特征到类实例后，通过fit方法学习数据的统计信息和编码器，
-       然后通过transform方法将原始数据转换为dict/dataframe，支持直接传入RecLib BaseModel的fit和predict方法中使用，也支持传入RecDataLoader。
-
     Examples:
         >>> processor = DataProcessor()
         >>> processor.add_numeric_feature('age', scaler='standard')
@@ -571,7 +576,7 @@ class DataProcessor:
         return vocab_sizes
         
     def summary(self):
-
+        """Print a summary of the DataProcessor configuration."""
         logger = logging.getLogger()
         
         logger.info(colorize("=" * 80, color="bright_blue", bold=True))

@@ -1,5 +1,9 @@
 """
 Metrics computation and configuration for model evaluation.
+
+Date: create on 27/10/2025
+Author:
+    Yang Zhou,zyaztec@gmail.com
 """
 import logging
 import numpy as np
@@ -9,10 +13,8 @@ from sklearn.metrics import (
 )
 
 
-# Classification and regression metric sets for validation
 CLASSIFICATION_METRICS = {'auc', 'gauc', 'ks', 'logloss', 'accuracy', 'acc', 'precision', 'recall', 'f1', 'micro_f1', 'macro_f1'}
 REGRESSION_METRICS = {'mse', 'mae', 'rmse', 'r2', 'mape', 'msle'}
-
 TASK_DEFAULT_METRICS = {
     'binary': ['auc', 'gauc', 'ks', 'logloss', 'accuracy', 'precision', 'recall', 'f1'],
     'regression': ['mse', 'mae', 'rmse', 'r2', 'mape'],
@@ -138,6 +140,7 @@ def _compute_precision_at_k(y_true: np.ndarray, y_pred: np.ndarray, user_ids: np
 
 
 def _compute_recall_at_k(y_true: np.ndarray, y_pred: np.ndarray, user_ids: np.ndarray | None, k: int) -> float:
+    """Compute Recall@K."""
     y_true = (y_true > 0).astype(int)
     n = len(y_true)
     groups = _group_indices_by_user(user_ids, n)
@@ -161,6 +164,7 @@ def _compute_recall_at_k(y_true: np.ndarray, y_pred: np.ndarray, user_ids: np.nd
 
 
 def _compute_hitrate_at_k(y_true: np.ndarray, y_pred: np.ndarray, user_ids: np.ndarray | None, k: int) -> float:
+    """Compute HitRate@K."""
     y_true = (y_true > 0).astype(int)
     n = len(y_true)
     groups = _group_indices_by_user(user_ids, n)
@@ -183,6 +187,7 @@ def _compute_hitrate_at_k(y_true: np.ndarray, y_pred: np.ndarray, user_ids: np.n
 
 
 def _compute_mrr_at_k(y_true: np.ndarray, y_pred: np.ndarray, user_ids: np.ndarray | None, k: int) -> float:
+    """Compute MRR@K."""
     y_true = (y_true > 0).astype(int)
     n = len(y_true)
     groups = _group_indices_by_user(user_ids, n)
@@ -220,6 +225,7 @@ def _compute_dcg_at_k(labels: np.ndarray, k: int) -> float:
 
 
 def _compute_ndcg_at_k(y_true: np.ndarray, y_pred: np.ndarray, user_ids: np.ndarray | None, k: int) -> float:
+    """Compute NDCG@K."""
     y_true = (y_true > 0).astype(int)
     n = len(y_true)
     groups = _group_indices_by_user(user_ids, n)
@@ -282,6 +288,7 @@ def _compute_map_at_k(y_true: np.ndarray, y_pred: np.ndarray, user_ids: np.ndarr
 
 
 def _compute_cosine_separation(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Compute Cosine Separation."""
     y_true = (y_true > 0).astype(int)
     pos_mask = y_true == 1
     neg_mask = y_true == 0
@@ -299,7 +306,7 @@ def configure_metrics(
     metrics: list[str] | dict[str, list[str]] | None, # ['auc', 'logloss'] or {'task1': ['auc'], 'task2': ['mse']}
     target_names: list[str]                           # ['target1', 'target2'] 
 ) -> tuple[list[str], dict[str, list[str]] | None, str]:
-    
+    """Configure metrics based on task and user input."""
     primary_task = task[0] if isinstance(task, list) else task
     nums_task = len(task) if isinstance(task, list) else 1
     
@@ -395,6 +402,7 @@ def compute_single_metric(
     task_type: str,
     user_ids: np.ndarray | None = None
 ) -> float:
+    """Compute a single metric given true and predicted values."""
     y_p_binary = (y_pred > 0.5).astype(int)
     
     try:
@@ -431,7 +439,7 @@ def compute_single_metric(
             k = int(metric_lower.split('@')[1])
             return _compute_map_at_k(y_true, y_pred, user_ids, k)
 
-        # cosine（matching 场景下的简单相似度分离度）
+        # cosine for matching task
         if metric_lower == 'cosine':
             return _compute_cosine_separation(y_true, y_pred)
         
@@ -479,13 +487,13 @@ def compute_single_metric(
 def evaluate_metrics(
     y_true: np.ndarray | None,
     y_pred: np.ndarray | None,
-    metrics: list[str],                                       # ['auc', 'logloss']
-    task: str | list[str],                                    # 'binary' or ['binary', 'regression']
-    target_names: list[str],                                  # ['target1', 'target2']
-    task_specific_metrics: dict[str, list[str]] | None = None, # {'target1': ['auc', 'logloss'], 'target2': ['mse']}
-    user_ids: np.ndarray | None = None                        # User IDs for GAUC computation
-) -> dict: # {'auc': 0.75, 'logloss': 0.45, 'mse_target2': 3.2}
-    
+    metrics: list[str],                                        # example: ['auc', 'logloss']
+    task: str | list[str],                                     # example: 'binary' or ['binary', 'regression']
+    target_names: list[str],                                   # example: ['target1', 'target2']
+    task_specific_metrics: dict[str, list[str]] | None = None, # example: {'target1': ['auc', 'logloss'], 'target2': ['mse']}
+    user_ids: np.ndarray | None = None                         # example: User IDs for GAUC computation
+) -> dict:                                                     # {'auc': 0.75, 'logloss': 0.45, 'mse_target2': 3.2}
+    """Evaluate specified metrics for given true and predicted values."""
     result = {}
     
     if y_true is None or y_pred is None:

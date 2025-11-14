@@ -1,3 +1,11 @@
+"""
+Feature definitions
+
+Date: create on 27/10/2025
+Author:
+    Yang Zhou,zyaztec@gmail.com
+"""
+
 from typing import Optional
 from reclib.utils import get_auto_embedding_dim
 

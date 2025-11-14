@@ -1,3 +1,11 @@
+"""
+Reclib Basic Loggers
+
+Date: create on 27/10/2025
+Author:
+    Yang Zhou,zyaztec@gmail.com
+"""
+
 import os
 import re
 import sys
@@ -65,6 +73,7 @@ class AnsiFormatter(logging.Formatter):
         return formatted
 
 def colorize(text: str, color: str | None = None, bold: bool = False) -> str:
+    """Apply ANSI color and bold formatting to the given text."""
     if not color and not bold:
         return text
 
@@ -81,6 +90,9 @@ def colorize(text: str, color: str | None = None, bold: bool = False) -> str:
     return result
 
 def setup_logger(log_dir: str | None = None):
+    """Set up a logger that logs to both console and a file with ANSI formatting.
+       Only console output has colors; file output is stripped of ANSI codes.    
+    """
     if log_dir is None:
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         log_dir = os.path.join(project_root, "..", "logs")

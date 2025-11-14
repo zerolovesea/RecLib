@@ -10,15 +10,5 @@ Author:
 def get_task_type(model) -> str:
     """
     Get task type from model.
-    
-    Args:
-        model: Model instance
-        
-    Returns:
-        Task type string (e.g., 'binary', 'regression', 'match', 'ranking', 'multitask')
-        
-    Examples:
-        >>> task_type = get_task_type(model)
-        >>> print(task_type)  # 'binary'
     """
     return model.task_type

@@ -30,23 +30,6 @@ def get_loss_fn(
 ) -> nn.Module:
     """
     Get loss function based on task type and training mode.
-    根据任务类型和训练模式获取损失函数，如果没有指定损失函数，则使用默认损失函数。
-
-    Args:
-        task_type: Type of task. One of:
-            - "binary": Binary classification (ranking/match pointwise)
-            - "multiclass": Multi-class classification
-            - "regression": Regression task
-            - "match": Matching/retrieval task (requires training_mode)
-        training_mode: Training mode for match tasks. One of:
-            - "pointwise": Point-wise training (treat as binary classification)
-            - "pairwise": Pair-wise training (BPR, Hinge, etc.)
-            - "listwise": List-wise training (Softmax, InfoNCE, etc.)
-        loss: Explicit loss function name or instance. If None, default loss is used.
-        **loss_kwargs: Additional arguments for loss function initialization.
-    
-    Returns:
-        Loss function instance
     
     Examples:
         # Ranking task (binary classification)

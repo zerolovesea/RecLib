@@ -17,14 +17,6 @@ def get_optimizer_fn(
 ):
     """
     Get optimizer function based on optimizer name or instance.
-    
-    Args:
-        optimizer: Optimizer name (adam, sgd, adamw, adagrad, rmsprop) or optimizer instance
-        params: Model parameters to optimize
-        **optimizer_params: Additional parameters for optimizer
-        
-    Returns:
-        Optimizer instance
         
     Examples:
         >>> optimizer = get_optimizer_fn("adam", model.parameters(), lr=1e-3)
@@ -64,14 +56,6 @@ def get_scheduler_fn(scheduler, optimizer, **scheduler_params):
     """
     Get learning rate scheduler function.
     
-    Args:
-        scheduler: Scheduler name (step, cosine) or scheduler instance
-        optimizer: Optimizer instance
-        **scheduler_params: Additional parameters for scheduler
-        
-    Returns:
-        Scheduler instance
-        
     Examples:
         >>> scheduler = get_scheduler_fn("step", optimizer, step_size=10, gamma=0.1)
         >>> scheduler = get_scheduler_fn("cosine", optimizer, T_max=100)

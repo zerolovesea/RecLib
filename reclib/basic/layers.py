@@ -1,3 +1,11 @@
+"""
+Layers definitions for recommendation models.
+
+Date: create on 27/10/2025
+Author:
+    Yang Zhou,zyaztec@gmail.com
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

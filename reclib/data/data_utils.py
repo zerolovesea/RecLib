@@ -1,23 +1,14 @@
 """
 Data processing utilities for RecLib
 
-This module provides utilities for data loading, preprocessing, and manipulation:
-- collate_fn: Custom collate function for batching
-- get_column_data: Extract column data from various formats
-- split_dict_random: Random split of dict data
-- build_eval_candidates: Build evaluation candidates for recommendation
-
 Date: create on 13/11/2025
 Author:
     Yang Zhou, zyaztec@gmail.com
 """
 
 import torch
-import logging
 import numpy as np
 import pandas as pd
-from torch.utils.data import DataLoader, TensorDataset
-from reclib.basic.loggers import setup_logger, colorize
 
 def collate_fn(batch):
     """
@@ -49,6 +40,7 @@ def collate_fn(batch):
 
 
 def get_column_data(data: dict | pd.DataFrame, name: str):
+    """Extract column data from various data structures."""
     if isinstance(data, dict):
         return data[name] if name in data else None
     elif isinstance(data, pd.DataFrame):
@@ -62,6 +54,7 @@ def get_column_data(data: dict | pd.DataFrame, name: str):
 
 
 def split_dict_random(data_dict: dict, test_size: float=0.2, random_state:int|None=None):
+    """Randomly split a dictionary of data into training and testing sets."""
     lengths = [len(v) for v in data_dict.values()]
     if len(set(lengths)) != 1:
         raise ValueError(f"Length mismatch: {lengths}")
@@ -97,6 +90,7 @@ def build_eval_candidates(
     num_neg_per_pos: int = 50,
     random_seed: int = 2025,
 ) -> pd.DataFrame:
+    """Build evaluation candidates with positive and negative samples for each user.   """
     rng = np.random.default_rng(random_seed)
 
     users = df_all[user_col].unique()

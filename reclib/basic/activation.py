@@ -1,3 +1,11 @@
+"""
+Activation function definitions
+
+Date: create on 27/10/2025
+Author:
+    Yang Zhou,zyaztec@gmail.com
+"""
+
 import torch
 import torch.nn as nn
 
@@ -36,16 +44,8 @@ class Dice(nn.Module):
 
 
 def activation_layer(activation: str, emb_size: int | None = None):
-    """
-    Create an activation layer based on the given activation name.
+    """Create an activation layer based on the given activation name."""
     
-    Args:
-        activation: Name of the activation function
-        emb_size: Embedding size (required for Dice activation)
-        
-    Returns:
-        nn.Module: The activation layer
-    """
     activation = activation.lower()
     
     if activation == "dice":

@@ -12,15 +12,6 @@ import torch.nn as nn
 def get_initializer_fn(init_type='normal', activation='linear', param=None):
     """
     Get parameter initialization function.
-    
-    Args:
-        init_type: Type of initialization (xavier_uniform, xavier_normal, kaiming_uniform, 
-                   kaiming_normal, orthogonal, normal, uniform)
-        activation: Activation function name for gain calculation
-        param: Additional parameters for initialization
-        
-    Returns:
-        Initializer function
         
     Examples:
         >>> init_fn = get_initializer_fn('xavier_uniform', 'relu')

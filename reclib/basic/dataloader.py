@@ -1,3 +1,11 @@
+"""
+Dataloader definitions
+
+Date: create on 27/10/2025
+Author:
+    Yang Zhou,zyaztec@gmail.com
+"""
+
 import os
 import glob
 import torch
@@ -21,9 +29,6 @@ class FileDataset(IterableDataset):
     """
     Iterable dataset for reading multiple files in batches.
     Supports CSV and Parquet files with chunk-based reading.
-
-    用于处理RecDataLoader中传入文件路径的场景，支持CSV和Parquet格式的文件分块读取
-    迭代器直接返回tensor tuple
     """
     
     def __init__(self, 
@@ -211,9 +216,6 @@ class RecDataLoader:
     Supports multiple input formats: dict, DataFrame, CSV files, Parquet files, and directories.
     Optionally supports DataProcessor for on-the-fly data transformation.
 
-    RecLib的自定义DataLoader，构建实例，并使用create_dataloader方法将不同的数据格式转换为统一的DataLoader
-    
-    
     Examples:
         >>> # 创建RecDataLoader
         >>> dataloader = RecDataLoader(
@@ -253,8 +255,6 @@ class RecDataLoader:
                          chunk_size: int = 10000) -> DataLoader:
         """
         Create DataLoader from various data sources.
-
-        根据不同情况创建DataLoader，支持传入字典、DataFrame、文件路径和DataLoader
         """
         if isinstance(data, DataLoader):
             return data
@@ -375,8 +375,6 @@ class RecDataLoader:
                          chunk_size: int) -> DataLoader:
         """
         Create DataLoader from a file path, supporting CSV and Parquet formats, with options for full loading or streaming.
-
-        根据传入路径创建DataLoader，支持CSV和Parquet格式的文件或目录，可选择全量加载或生成器加载
         """
 
         path_obj = Path(path)
