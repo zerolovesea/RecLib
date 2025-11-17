@@ -8,9 +8,9 @@ import pandas as pd
 
 from sklearn.model_selection import train_test_split
 
-from reclib.data.preprocessor import DataProcessor
-from reclib.basic.features import DenseFeature, SparseFeature
-from reclib.models.ranking.deepfm import DeepFM
+from recforge.data.preprocessor import DataProcessor
+from recforge.basic.features import DenseFeature, SparseFeature
+from recforge.models.ranking.deepfm import DeepFM
 
 def example_movielens_100k_deepfm():
     """Example: MovieLens 100K for rating prediction."""

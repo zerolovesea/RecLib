@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 import logging
 
-from reclib.basic.layers import (
+from recforge.basic.layers import (
     MLP,
     FM,
     CIN,
@@ -27,7 +27,7 @@ from reclib.basic.layers import (
     SumPooling,
     AveragePooling
 )
-from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 logger = logging.getLogger(__name__)
 

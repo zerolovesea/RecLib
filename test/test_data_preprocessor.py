@@ -14,7 +14,7 @@ import numpy as np
 import logging
 from pathlib import Path
 
-from reclib.data.preprocessor import DataProcessor
+from recforge.data.preprocessor import DataProcessor
 
 logger = logging.getLogger(__name__)
 

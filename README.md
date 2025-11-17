@@ -1,4 +1,4 @@
-# RecLib
+# RecForge
 
 <div align="center">
 
@@ -15,7 +15,7 @@
 
 ## Introduction
 
-RecLib is a modern recommendation system framework built on PyTorch, providing a unified modeling, training, and evaluation experience for researchers and engineering teams. The framework adopts a modular design with rich built-in model implementations, data-processing tools, and production-ready training components, enabling quick coverage of multiple recommendation scenarios.
+RecForge is a modern recommendation system framework built on PyTorch, providing a unified modeling, training, and evaluation experience for researchers and engineering teams. The framework adopts a modular design with rich built-in model implementations, data-processing tools, and production-ready training components, enabling quick coverage of multiple recommendation scenarios.
 
 ### Key Features
 
@@ -28,15 +28,15 @@ RecLib is a modern recommendation system framework built on PyTorch, providing a
 
 ## Installation
 
-RecLib supports installation via **UV** or traditional **pip/source installation**.
+RecForge supports installation via **UV** or traditional **pip/source installation**.
 
 ### Option 1: Using UV
 
 UV is a modern, high-performance Python package manager offering fast dependency resolution and installation.
 
 ```bash
-git clone https://github.com/zerolovesea/RecLib.git
-cd RecLib
+git clone https://github.com/zerolovesea/RecForge.git
+cd RecForge
 
 python -m uv sync
 source .venv/bin/activate  # macOS/Linux
@@ -47,8 +47,8 @@ source .venv/bin/activate  # macOS/Linux
 ### Option 2: Using pip/source installation
 
 ```bash
-git clone https://github.com/zerolovesea/RecLib.git
-cd RecLib
+git clone https://github.com/zerolovesea/RecForge.git
+cd RecForge
 pip install -e .
 pip install -r requirements.txt
 pip install -r test_requirements.txt
@@ -63,8 +63,8 @@ The following example demonstrates a full DeepFM training & inference pipeline u
 ```python
 import pandas as pd
 
-from reclib.models.ranking.deepfm import DeepFM
-from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from recforge.models.ranking.deepfm import DeepFM
+from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 df = pd.read_csv("dataset/movielens_100k.csv")
 
@@ -111,11 +111,11 @@ The `tutorials/` directory provides examples for ranking, retrieval, multi-task 
 
 ## Data Processing Example
 
-RecLib offers a unified interface for preprocessing sparse and sequence features:
+RecForge offers a unified interface for preprocessing sparse and sequence features:
 
 ```python
 import pandas as pd
-from reclib.data.preprocessor import DataProcessor
+from recforge.data.preprocessor import DataProcessor
 
 df = pd.read_csv("dataset/movielens_100k.csv")
 
@@ -219,7 +219,7 @@ This project is licensed under the [Apache 2.0 License](./LICENSE).
 
 ## Acknowledgements
 
-RecLib is inspired by the following great open-source projects:
+RecForge is inspired by the following great open-source projects:
 
 - **FuxiCTR** — Configurable and reproducible CTR prediction library  
 - **RecBole** — Unified and efficient recommendation library  
@@ -231,6 +231,6 @@ Special thanks to all open-source contributors!
 
 <div align="center">
 
-**[Back to Top](#reclib)**
+**[Back to Top](#recforge)**
 
 </div>

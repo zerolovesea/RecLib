@@ -9,7 +9,7 @@ import numpy as np
 import logging
 from typing import Dict, List
 
-from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 # Configure logging for tests
 logging.basicConfig(

@@ -17,14 +17,14 @@ import torch
 import torch.nn as nn
 import logging
 
-from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
-from reclib.models.ranking.deepfm import DeepFM
-from reclib.models.ranking.din import DIN
-from reclib.models.ranking.autoint import AutoInt
-from reclib.models.ranking.widedeep import WideDeep
-from reclib.models.ranking.xdeepfm import xDeepFM
-from reclib.models.ranking.dcn import DCN
-from reclib.models.ranking.dien import DIEN
+from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from recforge.models.ranking.deepfm import DeepFM
+from recforge.models.ranking.din import DIN
+from recforge.models.ranking.autoint import AutoInt
+from recforge.models.ranking.widedeep import WideDeep
+from recforge.models.ranking.xdeepfm import xDeepFM
+from recforge.models.ranking.dcn import DCN
+from recforge.models.ranking.dien import DIEN
 
 from test.test_utils import (
     assert_model_output_shape,

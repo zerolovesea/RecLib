@@ -1,4 +1,4 @@
-# RecLib
+# RecForge
 
 <div align="center">
 
@@ -16,7 +16,7 @@
 
 ## 简介
 
-RecLib 是一个基于 PyTorch 构建的现代推荐系统框架，为研究人员与工程团队提供统一的建模、训练与评估体验。框架采用模块化设计，内置丰富的模型实现、数据处理工具和工程化训练组件，可快速覆盖多种推荐场景。
+RecForge 是一个基于 PyTorch 构建的现代推荐系统框架，为研究人员与工程团队提供统一的建模、训练与评估体验。框架采用模块化设计，内置丰富的模型实现、数据处理工具和工程化训练组件，可快速覆盖多种推荐场景。
 
 ### 核心特性
 
@@ -29,15 +29,15 @@ RecLib 是一个基于 PyTorch 构建的现代推荐系统框架，为研究人�
 
 ## 安装
 
-RecLib 提供两种主流的安装方式UV与传统 pip/source 安装。
+RecForge 提供两种主流的安装方式UV与传统 pip/source 安装。
 
 #### 方法一：使用 UV
 
 UV 是一款高速、现代化的 Python 包管理器，能够带来更快的依赖解析与安装体验。
 
 ```bash
-git clone https://github.com/zerolovesea/RecLib.git
-cd RecLib
+git clone https://github.com/zerolovesea/RecForge.git
+cd RecForge
 
 python -m uv sync
 source .venv/bin/activate  # macOS/Linux
@@ -49,8 +49,8 @@ source .venv/bin/activate  # macOS/Linux
 #### 方法二：使用 pip/source 
 
 ```bash
-git clone https://github.com/zerolovesea/RecLib.git
-cd RecLib
+git clone https://github.com/zerolovesea/RecForge.git
+cd RecForge
 pip install -e .
 pip install -r requirements.txt
 pip install -r test_requirements.txt
@@ -63,8 +63,8 @@ pip install -r test_requirements.txt
 ```python
 import pandas as pd
 
-from reclib.models.ranking.deepfm import DeepFM
-from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from recforge.models.ranking.deepfm import DeepFM
+from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 df = pd.read_csv("dataset/movielens_100k.csv")
 
@@ -113,7 +113,7 @@ RecLib 提供统一的数据预处理接口，支持对稀疏特征，序列特�
 
 ```python
 import pandas as pd
-from reclib.data.preprocessor import DataProcessor
+from recforge.data.preprocessor import DataProcessor
 
 df = pd.read_csv("dataset/movielens_100k.csv")
 
@@ -191,7 +191,7 @@ print(df.head())
 
 ### 报告错误
 
-在 [Issues](https://github.com/zerolovesea/RecLib/issues) 页面提交问题时，请包含：
+在 [Issues](https://github.com/zerolovesea/RecForge/issues) 页面提交问题时，请包含：
 
 - 错误描述
 - 重现步骤
@@ -228,6 +228,6 @@ RecLib 的开发受到以下优秀项目的启发：
 
 <div align="center">
 
-**[返回顶部](#reclib)**
+**[返回顶部](#recforge)**
 
 </div>

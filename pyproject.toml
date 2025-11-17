@@ -1,5 +1,5 @@
 [project]
-name = "reclib"
+name = "recforge"
 version = "0.1.0"
 description = "A comprehensive recommendation library with match, ranking, and multi-task learning models"
 readme = "README.md"
@@ -45,17 +45,17 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/zerolovesea/RecLib"
-Repository = "https://github.com/zerolovesea/RecLib"
-Documentation = "https://github.com/zerolovesea/RecLib/blob/main/README.md"
-Issues = "https://github.com/zerolovesea/RecLib/issues"
+Homepage = "https://github.com/zerolovesea/RecForge"
+Repository = "https://github.com/zerolovesea/RecForge"
+Documentation = "https://github.com/zerolovesea/RecForge/blob/main/README.md"
+Issues = "https://github.com/zerolovesea/RecForge/issues"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["reclib"]
+packages = ["recforge"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
@@ -69,7 +69,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["reclib"]
+source = ["recforge"]
 omit = ["*/tests/*", "*/test_*"]
 
 [tool.coverage.report]

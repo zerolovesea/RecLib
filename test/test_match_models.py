@@ -14,11 +14,11 @@ import torch
 import torch.nn as nn
 import logging
 
-from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
-from reclib.models.match.dssm import DSSM
-from reclib.models.match.youtube_dnn import YoutubeDNN
-from reclib.models.match.mind import MIND
-from reclib.models.match.sdm import SDM
+from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from recforge.models.match.dssm import DSSM
+from recforge.models.match.youtube_dnn import YoutubeDNN
+from recforge.models.match.mind import MIND
+from recforge.models.match.sdm import SDM
 
 from test.test_utils import (
     assert_model_output_shape,

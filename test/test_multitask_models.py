@@ -14,11 +14,11 @@ import torch
 import torch.nn as nn
 import logging
 
-from reclib.basic.features import DenseFeature, SparseFeature, SequenceFeature
-from reclib.models.multi_task.share_bottom import ShareBottom
-from reclib.models.multi_task.mmoe import MMOE
-from reclib.models.multi_task.ple import PLE
-from reclib.models.multi_task.esmm import ESMM
+from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from recforge.models.multi_task.share_bottom import ShareBottom
+from recforge.models.multi_task.mmoe import MMOE
+from recforge.models.multi_task.ple import PLE
+from recforge.models.multi_task.esmm import ESMM
 
 from test.test_utils import (
     assert_model_output_shape,
