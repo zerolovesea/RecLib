@@ -1,5 +1,5 @@
 """
-Common utilities for RecLib
+Common utilities for RecForge
 
 Date: create on 13/11/2025
 Author:

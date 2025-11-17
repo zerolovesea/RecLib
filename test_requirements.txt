@@ -1,4 +1,4 @@
-# Testing Requirements for RecLib
+# Testing Requirements for RecForge
 # Install with: pip install -r test_requirements.txt
 
 # Core testing framework

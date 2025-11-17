@@ -1,5 +1,5 @@
 """
-Loss utilities for RecLib
+Loss utilities for RecForge
 
 Date: create on 09/11/2025
 Author:

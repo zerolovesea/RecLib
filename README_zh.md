@@ -109,7 +109,7 @@ print(f'preds: {preds}')
 
 ### 数据预处理示例
 
-RecLib 提供统一的数据预处理接口，支持对稀疏特征，序列特征进行数据预处理：
+RecForge 提供统一的数据预处理接口，支持对稀疏特征，序列特征进行数据预处理：
 
 ```python
 import pandas as pd
@@ -209,14 +209,14 @@ print(df.head())
 
 ## 联系方式
 
-- **GitHub Issues**: [提交问题](https://github.com/zerolovesea/RecLib/issues)
+- **GitHub Issues**: [提交问题](https://github.com/zerolovesea/RecForge/issues)
 - **邮箱**: zyaztec@gmail.com
 
 ---
 
 ## 致谢
 
-RecLib 的开发受到以下优秀项目的启发：
+RecForge 的开发受到以下优秀项目的启发：
 
 - [FuxiCTR](https://github.com/reczoo/FuxiCTR) - 可配置、可调优、可复现的 CTR 预测库
 - [RecBole](https://github.com/RUCAIBox/RecBole) - 统一、全面、高效的推荐库

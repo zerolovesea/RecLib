@@ -1,5 +1,5 @@
 """
-Data utilities package for RecLib
+Data utilities package for RecForge
 
 This package provides data processing and manipulation utilities.
 

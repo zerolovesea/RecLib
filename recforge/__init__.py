@@ -1,8 +1,8 @@
 """
-RecLib - A Unified Deep Learning Framework for Recommender Systems
+RecForge - A Unified Deep Learning Framework for Recommender Systems
 ===================================================================
 
-RecLib provides a comprehensive suite of recommendation models including:
+RecForge provides a comprehensive suite of recommendation models including:
 - Ranking models (CTR prediction)
 - Matching models (retrieval)
 - Multi-task learning models
@@ -10,8 +10,8 @@ RecLib provides a comprehensive suite of recommendation models including:
 
 Quick Start
 -----------
->>> from reclib.basic.features import DenseFeature, SparseFeature
->>> from reclib.models.ranking.deepfm import DeepFM
+>>> from recforge.basic.features import DenseFeature, SparseFeature
+>>> from recforge.models.ranking.deepfm import DeepFM
 >>> 
 >>> # Define features
 >>> dense_features = [DenseFeature('age')]
@@ -38,4 +38,4 @@ __all__ = [
 __author__ = "zerolovesea"
 __email__ = "zyaztec@gmail.com"
 __license__ = "Apache 2.0"
-__url__ = "https://github.com/zerolovesea/RecLib"
+__url__ = "https://github.com/zerolovesea/RecForge"

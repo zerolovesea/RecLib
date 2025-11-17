@@ -1,5 +1,5 @@
 """
-Data processing utilities for RecLib
+Data processing utilities for RecForge
 
 Date: create on 13/11/2025
 Author:

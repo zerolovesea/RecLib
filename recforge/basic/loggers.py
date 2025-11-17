@@ -1,5 +1,5 @@
 """
-Reclib Basic Loggers
+RecForge Basic Loggers
 
 Date: create on 27/10/2025
 Author:
@@ -98,7 +98,7 @@ def setup_logger(log_dir: str | None = None):
         log_dir = os.path.join(project_root, "..", "logs")
     
     os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, f"reclib_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+    log_file = os.path.join(log_dir, f"recforge_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
 
     console_format = '%(message)s'
     file_format = '%(asctime)s - %(levelname)s - %(message)s'

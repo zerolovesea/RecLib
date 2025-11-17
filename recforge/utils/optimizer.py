@@ -1,5 +1,5 @@
 """
-Optimizer and Scheduler utilities for RecLib
+Optimizer and Scheduler utilities for RecForge
 
 Date: create on 13/11/2025
 Author:

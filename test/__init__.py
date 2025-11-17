@@ -1,3 +1,3 @@
 """
-RecLib Unit Tests Package
+RecForge Unit Tests Package
 """
