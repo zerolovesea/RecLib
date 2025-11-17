@@ -975,9 +975,11 @@ class BaseModel(nn.Module):
         )
 
 
-    def predict(self, data: dict|pd.DataFrame|DataLoader, batch_size: int = 32) -> np.ndarray:
+    def predict(self, data: str|dict|pd.DataFrame|DataLoader, batch_size: int = 32) -> np.ndarray:
         self.eval()
-
+        # todo: handle file path input later
+        if isinstance(data, (str, os.PathLike)):
+            pass
         if not isinstance(data, DataLoader):
             data_loader = self._prepare_data_loader(data, batch_size=batch_size, shuffle=False)
         else:
