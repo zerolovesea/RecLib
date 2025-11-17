@@ -226,7 +226,7 @@ def pytest_configure(config):
     Pytest configuration hook
     """
     logger.info("=" * 80)
-    logger.info("Starting RecLib Unit Tests")
+    logger.info("Starting RecForge Unit Tests")
     logger.info("=" * 80)
 
 
@@ -235,5 +235,5 @@ def pytest_unconfigure(config):
     Pytest teardown hook
     """
     logger.info("=" * 80)
-    logger.info("RecLib Unit Tests Completed")
+    logger.info("RecForge Unit Tests Completed")
     logger.info("=" * 80)
