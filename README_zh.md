@@ -25,6 +25,8 @@ RecForge 是一个基于 PyTorch 构建的现代推荐系统框架，为研究�
 - **高效训练与评估**：标准化训练引擎内置多种优化器、学习率调度、早停、模型检查点与日志，开箱即用。
 - **友好的工程体验**：模块化设计便于扩展，配套教程齐全，并支持 GPU/MPS 加速与可视化监控。
 
+> 项目借鉴了一些优秀的开源推荐算法库，其中通用layer层借鉴了目前更成熟的[torch-rechub](https://github.com/datawhalechina/torch-rechub)的已有实现，欢迎有需要的开发者前往该仓库使用。目前该项目初期代码尚不成熟，正逐步更新为自有实现，如有Bug请移步issue区，也欢迎开发者共同贡献。
+
 ---
 
 ## 安装
@@ -218,6 +220,7 @@ print(df.head())
 
 RecForge 的开发受到以下优秀项目的启发：
 
+- [torch-rechub](https://github.com/datawhalechina/torch-rechub) - 灵活且易于扩展的推荐系统框架
 - [FuxiCTR](https://github.com/reczoo/FuxiCTR) - 可配置、可调优、可复现的 CTR 预测库
 - [RecBole](https://github.com/RUCAIBox/RecBole) - 统一、全面、高效的推荐库
 - [PaddleRec](https://github.com/PaddlePaddle/PaddleRec) - 大规模推荐算法库

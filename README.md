@@ -17,6 +17,8 @@
 
 RecForge is a modern recommendation system framework built on PyTorch, providing a unified modeling, training, and evaluation experience for researchers and engineering teams. The framework adopts a modular design with rich built-in model implementations, data-processing tools, and production-ready training components, enabling quick coverage of multiple recommendation scenarios.
 
+> This project draws on several open-source recommendation libraries, with the general layers referencing the mature implementations in [torch-rechub](https://github.com/datawhalechina/torch-rechub)￼. These part of codes is still in its early stage and is being gradually replaced with our own implementations. If you find any bugs, please submit them in the issue section. Contributions are welcome.
+
 ### Key Features
 
 - **Multi-scenario Recommendation**: Supports ranking (CTR/CVR), retrieval, multi-task learning, and generative recommendation models such as TIGER and HSTU — with more models continuously added.
@@ -221,6 +223,7 @@ This project is licensed under the [Apache 2.0 License](./LICENSE).
 
 RecForge is inspired by the following great open-source projects:
 
+- **torch-rechub** - A Lighting Pytorch Framework for Recommendation Models, Easy-to-use and Easy-to-extend.
 - **FuxiCTR** — Configurable and reproducible CTR prediction library  
 - **RecBole** — Unified and efficient recommendation library  
 - **PaddleRec** — Large-scale recommendation algorithm library  
