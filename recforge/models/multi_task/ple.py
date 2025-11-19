@@ -78,7 +78,9 @@ class PLE(BaseModel):
         self.num_shared_experts = num_shared_experts
         self.num_specific_experts = num_specific_experts
         self.num_levels = num_levels
-        
+        if optimizer_params is None:
+            optimizer_params = {}
+            
         if len(tower_params_list) != self.num_tasks:
             raise ValueError(f"Number of tower params ({len(tower_params_list)}) must match number of tasks ({self.num_tasks})")
             
@@ -128,19 +130,21 @@ class PLE(BaseModel):
             # Gates for this level (num_tasks task gates + 1 shared gate)
             gates = nn.ModuleList()
             # Task-specific gates
+            num_experts_for_task_gate = num_shared_experts + num_specific_experts
             for _ in range(self.num_tasks):
-                num_experts_for_gate = num_shared_experts + num_specific_experts
                 gate = nn.Sequential(
-                    nn.Linear(level_input_dim, num_experts_for_gate),
+                    nn.Linear(level_input_dim, num_experts_for_task_gate),
                     nn.Softmax(dim=1)
                 )
                 gates.append(gate)
-            # Shared gate
-            gate = nn.Sequential(
-                nn.Linear(level_input_dim, num_shared_experts),
+            # Shared gate: contains all tasks' specific experts + shared experts
+            # expert counts = num_shared_experts + num_specific_experts * num_tasks
+            num_experts_for_shared_gate = num_shared_experts + num_specific_experts * self.num_tasks
+            shared_gate = nn.Sequential(
+                nn.Linear(level_input_dim, num_experts_for_shared_gate),
                 nn.Softmax(dim=1)
             )
-            gates.append(gate)
+            gates.append(shared_gate)
             self.gates_layers.append(gates)
         
         # Task-specific towers
@@ -168,57 +172,89 @@ class PLE(BaseModel):
     def forward(self, x):
         # Get all embeddings and flatten
         input_flat = self.embedding(x=x, features=self.all_features, squeeze_dim=True)
-        
-        # Progressive extraction through levels
-        task_fea = [input_flat] * self.num_tasks  # Initialize task features
-        shared_fea = input_flat  # Initialize shared feature
-        
+
+        # Initial features for each task and shared
+        task_fea = [input_flat for _ in range(self.num_tasks)]
+        shared_fea = input_flat
+
+        # Progressive Layered Extraction: CGC
         for level in range(self.num_levels):
-            # Get experts for this level
-            shared_experts = self.shared_experts_layers[level]
-            specific_experts = self.specific_experts_layers[level]
-            gates = self.gates_layers[level]
-            
-            # Compute shared expert outputs
-            shared_expert_outputs = [expert(shared_fea) for expert in shared_experts]
-            shared_expert_outputs = torch.stack(shared_expert_outputs, dim=0)  # [num_shared, B, expert_dim]
-            
-            # Process each task
+            shared_experts = self.shared_experts_layers[level]      # ModuleList[num_shared_experts]
+            specific_experts = self.specific_experts_layers[level]  # ModuleList[num_tasks][num_specific_experts]
+            gates = self.gates_layers[level]                        # ModuleList[num_tasks + 1]
+
+            # Compute shared experts output for this level
+            # shared_expert_list: List[Tensor[B, expert_dim]]
+            shared_expert_list = [expert(shared_fea) for expert in shared_experts]
+            # [num_shared_experts, B, expert_dim]
+            shared_expert_outputs = torch.stack(shared_expert_list, dim=0)
+
+            all_specific_outputs_for_shared = []
+
+            # Compute task's gated output and specific outputs
             new_task_fea = []
             for task_idx in range(self.num_tasks):
-                # Task-specific expert outputs
-                task_experts = specific_experts[task_idx]
-                task_expert_outputs = [expert(task_fea[task_idx]) for expert in task_experts]
-                task_expert_outputs = torch.stack(task_expert_outputs, dim=0)  # [num_specific, B, expert_dim]
-                
-                # Combine shared and task-specific experts
-                all_expert_outputs = torch.cat([shared_expert_outputs, task_expert_outputs], dim=0)  # [num_shared + num_specific, B, expert_dim]
-                
-                # Gate for this task
-                gate_weights = gates[task_idx](task_fea[task_idx])  # [B, num_shared + num_specific]
-                gate_weights = gate_weights.unsqueeze(2)  # [B, num_shared + num_specific, 1]
-                all_expert_outputs_t = all_expert_outputs.permute(1, 0, 2)  # [B, num_experts, expert_dim]
-                
-                # Gated output for this task
-                gated_output = torch.sum(gate_weights * all_expert_outputs_t, dim=1)  # [B, expert_dim]
+                # Current input for this task at this level
+                current_task_in = task_fea[task_idx]
+
+                # Specific task experts for this task
+                task_expert_modules = specific_experts[task_idx]
+
+                # Specific task expert output list List[Tensor[B, expert_dim]]
+                task_specific_list = []
+                for expert in task_expert_modules:
+                    out = expert(current_task_in)
+                    task_specific_list.append(out)
+                    # All specific task experts are candidates for the shared gate
+                    all_specific_outputs_for_shared.append(out)
+
+                # [num_specific_taskexperts, B, expert_dim]
+                task_specific_outputs = torch.stack(task_specific_list, dim=0)
+
+                # Input for gate: shared_experts + own specific task experts
+                # [num_shared + num_specific, B, expert_dim]
+                all_expert_outputs = torch.cat(
+                    [shared_expert_outputs, task_specific_outputs],
+                    dim=0
+                )
+                # [B, num_experts, expert_dim]
+                all_expert_outputs_t = all_expert_outputs.permute(1, 0, 2)
+
+                # Gate for task (gates[task_idx])
+                # Output shape: [B, num_shared + num_specific]
+                gate_weights = gates[task_idx](current_task_in)
+                # [B, num_experts, 1]
+                gate_weights = gate_weights.unsqueeze(2)
+
+                # Weighted sum to get this task's features at this level: [B, expert_dim]
+                gated_output = torch.sum(gate_weights * all_expert_outputs_t, dim=1)
                 new_task_fea.append(gated_output)
-            
-            # Shared gate (only uses shared experts)
-            shared_gate_weights = gates[self.num_tasks](shared_fea)  # [B, num_shared]
-            shared_gate_weights = shared_gate_weights.unsqueeze(2)  # [B, num_shared, 1]
-            shared_expert_outputs_t = shared_expert_outputs.permute(1, 0, 2)  # [B, num_shared, expert_dim]
-            new_shared_fea = torch.sum(shared_gate_weights * shared_expert_outputs_t, dim=1)  # [B, expert_dim]
-            
-            # Update for next level
+
+            # compute shared gate output
+            # Input for shared gate: specific task experts + shared experts
+            # all_specific_outputs_for_shared: List[Tensor[B, expert_dim]]
+            # shared_expert_list: List[Tensor[B, expert_dim]]
+            all_for_shared_list = all_specific_outputs_for_shared + shared_expert_list
+            # [B, num_all_experts, expert_dim]
+            all_for_shared = torch.stack(all_for_shared_list, dim=1)
+
+            # [B, num_all_experts]
+            shared_gate_weights = gates[self.num_tasks](shared_fea)
+            # [B, 1, num_all_experts]
+            shared_gate_weights = shared_gate_weights.unsqueeze(1)
+
+            # weighted sum: [B, 1, expert_dim] → [B, expert_dim]
+            new_shared_fea = torch.bmm(shared_gate_weights, all_for_shared).squeeze(1)
+
             task_fea = new_task_fea
             shared_fea = new_shared_fea
-        
-        # Task-specific towers
+
+        # task tower
         task_outputs = []
         for task_idx in range(self.num_tasks):
             tower_output = self.towers[task_idx](task_fea[task_idx])  # [B, 1]
             task_outputs.append(tower_output)
-        
-        # Stack outputs: [B, num_tasks]
+
+        # [B, num_tasks]
         y = torch.cat(task_outputs, dim=1)
         return self.prediction_layer(y)
