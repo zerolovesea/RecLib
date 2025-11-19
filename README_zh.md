@@ -33,29 +33,45 @@ RecForge 是一个基于 PyTorch 构建的现代推荐系统框架，为研究�
 
 RecForge 提供两种主流的安装方式UV与传统 pip/source 安装。
 
-#### 方法一：使用 UV
+#### 方法一:使用 UV(推荐)
 
-UV 是一款高速、现代化的 Python 包管理器，能够带来更快的依赖解析与安装体验。
+UV 是一款高速、现代化的 Python 包管理器,能够带来更快的依赖解析与安装体验。
 
 ```bash
 git clone https://github.com/zerolovesea/RecForge.git
 cd RecForge
 
-python -m uv sync
+# 如果尚未安装 UV,先安装它
+pip install uv
+
+# 创建虚拟环境并安装依赖
+uv sync
+
+# 激活虚拟环境
 source .venv/bin/activate  # macOS/Linux
 # 或
 .venv\Scripts\activate     # Windows
 
+# 以可编辑模式安装包
+uv pip install -e .
 ```
 
-#### 方法二：使用 pip/source 
+**注意**: 在运行 `uv sync` 之前,请确保退出其他 conda/虚拟环境,以避免环境冲突。
+
+
+
+#### 方法二:使用 pip/source 
 
 ```bash
 git clone https://github.com/zerolovesea/RecForge.git
 cd RecForge
-pip install -e .
+
+# 安装依赖
 pip install -r requirements.txt
 pip install -r test_requirements.txt
+
+# 以可编辑模式安装包
+pip install -e .
 ```
 
 ## 5分钟快速上手
