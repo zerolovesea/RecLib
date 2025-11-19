@@ -185,9 +185,6 @@ print(df.head())
 | **PLE** | Progressive Layered Extraction | RecSys 2020 | Supported |
 | **ESMM** | Entire Space Multi-task Model | SIGIR 2018 | Supported |
 | **ShareBottom** | Multitask Learning | - | Supported |
-| **AdaTT** | Adaptive Task-to-Task Communication for Multi-task Recommendation | - | Supported |
-| **PEPNet** | Parameter & Embedding Personalized Network for Large-scale Multi-task Recommendation | - | Supported |
-| **STAR** | Sparse-Activated Router with Top-K Experts for Multi-task Learning | - | Supported |
 
 ### Generative Models
 
