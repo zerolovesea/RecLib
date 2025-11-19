@@ -1,4 +1,4 @@
-# RecForge
+# NextRec
 
 <div align="center">
 
@@ -15,7 +15,7 @@
 
 ## Introduction
 
-RecForge is a modern recommendation system framework built on PyTorch, providing a unified modeling, training, and evaluation experience for researchers and engineering teams. The framework adopts a modular design with rich built-in model implementations, data-processing tools, and production-ready training components, enabling quick coverage of multiple recommendation scenarios.
+NextRec is a modern recommendation system framework built on PyTorch, providing a unified modeling, training, and evaluation experience for researchers and engineering teams. The framework adopts a modular design with rich built-in model implementations, data-processing tools, and production-ready training components, enabling quick coverage of multiple recommendation scenarios.
 
 > This project draws on several open-source recommendation libraries, with the general layers referencing the mature implementations in [torch-rechub](https://github.com/datawhalechina/torch-rechub)￼. These part of codes is still in its early stage and is being gradually replaced with our own implementations. If you find any bugs, please submit them in the issue section. Contributions are welcome.
 
@@ -30,15 +30,15 @@ RecForge is a modern recommendation system framework built on PyTorch, providing
 
 ## Installation
 
-RecForge supports installation via **UV** or traditional **pip/source installation**.
+NextRec supports installation via **UV** or traditional **pip/source installation**.
 
 ### Option 1: Using UV (Recommended)
 
 UV is a modern, high-performance Python package manager offering fast dependency resolution and installation.
 
 ```bash
-git clone https://github.com/zerolovesea/RecForge.git
-cd RecForge
+git clone https://github.com/zerolovesea/NextRec.git
+cd NextRec
 
 # Install UV if not already installed
 pip install uv
@@ -60,8 +60,8 @@ uv pip install -e .
 ### Option 2: Using pip/source installation
 
 ```bash
-git clone https://github.com/zerolovesea/RecForge.git
-cd RecForge
+git clone https://github.com/zerolovesea/NextRec.git
+cd NextRec
 
 # Install dependencies
 pip install -r requirements.txt
@@ -80,8 +80,8 @@ The following example demonstrates a full DeepFM training & inference pipeline u
 ```python
 import pandas as pd
 
-from recforge.models.ranking.deepfm import DeepFM
-from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from nextrec.models.ranking.deepfm import DeepFM
+from nextrec.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 df = pd.read_csv("dataset/movielens_100k.csv")
 
@@ -128,11 +128,11 @@ The `tutorials/` directory provides examples for ranking, retrieval, multi-task 
 
 ## Data Processing Example
 
-RecForge offers a unified interface for preprocessing sparse and sequence features:
+NextRec offers a unified interface for preprocessing sparse and sequence features:
 
 ```python
 import pandas as pd
-from recforge.data.preprocessor import DataProcessor
+from nextrec.data.preprocessor import DataProcessor
 
 df = pd.read_csv("dataset/movielens_100k.csv")
 
@@ -242,7 +242,7 @@ This project is licensed under the [Apache 2.0 License](./LICENSE).
 
 ## Acknowledgements
 
-RecForge is inspired by the following great open-source projects:
+NextRec is inspired by the following great open-source projects:
 
 - **torch-rechub** - A Lighting Pytorch Framework for Recommendation Models, Easy-to-use and Easy-to-extend.
 - **FuxiCTR** — Configurable and reproducible CTR prediction library  
@@ -255,6 +255,6 @@ Special thanks to all open-source contributors!
 
 <div align="center">
 
-**[Back to Top](#recforge)**
+**[Back to Top](#nextrec)**
 
 </div>

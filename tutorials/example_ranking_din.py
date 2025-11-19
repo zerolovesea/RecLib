@@ -8,8 +8,8 @@ import pandas as pd
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from recforge.models.ranking.din import DIN
-from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from nextrec.models.ranking.din import DIN
+from nextrec.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 from sklearn.model_selection import train_test_split
 
@@ -146,7 +146,7 @@ print(f"Prediction range: [{predictions.min():.4f}, {predictions.max():.4f}]")
 
 # Evaluate
 from sklearn.metrics import roc_auc_score, log_loss
-from recforge.basic.metrics import compute_gauc
+from nextrec.basic.metrics import compute_gauc
 
 auc = roc_auc_score(valid_df['label'].values, predictions)
 gauc = compute_gauc(valid_df['label'].values, predictions, valid_df['user_id'].values)

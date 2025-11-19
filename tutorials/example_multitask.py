@@ -8,8 +8,8 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 import pandas as pd
 
-from recforge.models.multi_task.esmm import ESMM
-from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from nextrec.models.multi_task.esmm import ESMM
+from nextrec.basic.features import DenseFeature, SparseFeature, SequenceFeature
 from sklearn.model_selection import train_test_split
 
 
@@ -153,7 +153,7 @@ print("Evaluation with GAUC")
 print("=" * 60)
 
 from sklearn.metrics import roc_auc_score, log_loss
-from recforge.basic.metrics import compute_gauc
+from nextrec.basic.metrics import compute_gauc
 
 for i, task_name in enumerate(task_labels):
     y_true = valid_df[task_name].values

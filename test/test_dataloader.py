@@ -14,8 +14,8 @@ import torch
 from torch.utils.data import DataLoader
 import logging
 
-from recforge.basic.dataloader import RecDataLoader
-from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from nextrec.basic.dataloader import RecDataLoader
+from nextrec.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 logger = logging.getLogger(__name__)
 

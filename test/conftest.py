@@ -9,7 +9,7 @@ import numpy as np
 import logging
 from typing import Dict, List
 
-from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from nextrec.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 # Configure logging for tests
 logging.basicConfig(
@@ -226,7 +226,7 @@ def pytest_configure(config):
     Pytest configuration hook
     """
     logger.info("=" * 80)
-    logger.info("Starting RecForge Unit Tests")
+    logger.info("Starting NextRec Unit Tests")
     logger.info("=" * 80)
 
 
@@ -235,5 +235,5 @@ def pytest_unconfigure(config):
     Pytest teardown hook
     """
     logger.info("=" * 80)
-    logger.info("RecForge Unit Tests Completed")
+    logger.info("NextRec Unit Tests Completed")
     logger.info("=" * 80)
