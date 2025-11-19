@@ -154,19 +154,25 @@ print(df.head())
 
 | Model | Paper | Year | Status |
 |-------|-------|------|--------|
+| **FM** | Factorization Machines | ICDM 2010 | Supported |
+| **AFM** | Attentional Factorization Machines: Learning the Weight of Feature Interactions via Attention Networks | IJCAI 2017 | Supported |
 | **DeepFM** | DeepFM: A Factorization-Machine based Neural Network for CTR Prediction | IJCAI 2017 | Supported |
 | **Wide&Deep** | Wide & Deep Learning for Recommender Systems | DLRS 2016 | Supported |
 | **xDeepFM** | xDeepFM: Combining Explicit and Implicit Feature Interactions | KDD 2018 | Supported |
+| **FiBiNET** | FiBiNET: Combining Feature Importance and Bilinear Feature Interaction for CTR Prediction | RecSys 2019 | Supported |
+| **PNN** | Product-based Neural Networks for User Response Prediction | ICDM 2016 | Supported |
 | **AutoInt** | AutoInt: Automatic Feature Interaction Learning | CIKM 2019 | Supported |
 | **DCN** | Deep & Cross Network for Ad Click Predictions | ADKDD 2017 | Supported |
 | **DIN** | Deep Interest Network for CTR Prediction | KDD 2018 | Supported |
 | **DIEN** | Deep Interest Evolution Network | AAAI 2019 | Supported |
+| **MaskNet** | MaskNet: Feature-wise Gating Blocks for High-dimensional Sparse Recommendation Data | 2020 | Supported |
 
 ### Retrieval Models
 
 | Model | Paper | Year | Status |
 |-------|-------|------|--------|
 | **DSSM** | Learning Deep Structured Semantic Models | CIKM 2013 | Supported |
+| **DSSM v2** | DSSM with pairwise BPR-style optimization | - | Supported |
 | **YouTube DNN** | Deep Neural Networks for YouTube Recommendations | RecSys 2016 | Supported |
 | **MIND** | Multi-Interest Network with Dynamic Routing | CIKM 2019 | Supported |
 | **SDM** | Sequential Deep Matching Model | - | Supported |
@@ -179,6 +185,9 @@ print(df.head())
 | **PLE** | Progressive Layered Extraction | RecSys 2020 | Supported |
 | **ESMM** | Entire Space Multi-task Model | SIGIR 2018 | Supported |
 | **ShareBottom** | Multitask Learning | - | Supported |
+| **AdaTT** | Adaptive Task-to-Task Communication for Multi-task Recommendation | - | Supported |
+| **PEPNet** | Parameter & Embedding Personalized Network for Large-scale Multi-task Recommendation | - | Supported |
+| **STAR** | Sparse-Activated Router with Top-K Experts for Multi-task Learning | - | Supported |
 
 ### Generative Models
 

@@ -152,19 +152,25 @@ print(df.head())
 
 | 模型 | 论文 | 年份 | 状态 |
 |------|------|------|------|
+| **FM** | Factorization Machines | ICDM 2010 | 已支持 |
+| **AFM** | Attentional Factorization Machines: Learning the Weight of Feature Interactions via Attention Networks | IJCAI 2017 | 已支持 |
 | **DeepFM** | DeepFM: A Factorization-Machine based Neural Network for CTR Prediction | IJCAI 2017 | 已支持 |
 | **Wide&Deep** | Wide & Deep Learning for Recommender Systems | DLRS 2016 | 已支持 |
 | **xDeepFM** | xDeepFM: Combining Explicit and Implicit Feature Interactions | KDD 2018 | 已支持 |
+| **FiBiNET** | FiBiNET: Combining Feature Importance and Bilinear Feature Interaction for CTR Prediction | RecSys 2019 | 已支持 |
+| **PNN** | Product-based Neural Networks for User Response Prediction | ICDM 2016 | 已支持 |
 | **AutoInt** | AutoInt: Automatic Feature Interaction Learning | CIKM 2019 | 已支持 |
 | **DCN** | Deep & Cross Network for Ad Click Predictions | ADKDD 2017 | 已支持 |
 | **DIN** | Deep Interest Network for Click-Through Rate Prediction | KDD 2018 | 已支持 |
 | **DIEN** | Deep Interest Evolution Network for Click-Through Rate Prediction | AAAI 2019 | 已支持 |
+| **MaskNet** | MaskNet: Introducing Feature-wise Gating Blocks for High-dimensional Sparse Recommendation Data | 2020 | 已支持 |
 
 ### 召回模型
 
 | 模型 | 论文 | 年份 | 状态 |
 |------|------|------|------|
 | **DSSM** | Learning Deep Structured Semantic Models | CIKM 2013 | 已支持 |
+| **DSSM v2** | DSSM with pairwise BPR-style optimization | - | 已支持 |
 | **YouTube DNN** | Deep Neural Networks for YouTube Recommendations | RecSys 2016 | 已支持 |
 | **MIND** | Multi-Interest Network with Dynamic Routing | CIKM 2019 | 已支持 |
 | **SDM** | Sequential Deep Matching Model | - | 已支持 |
@@ -177,6 +183,9 @@ print(df.head())
 | **PLE** | Progressive Layered Extraction | RecSys 2020 | 已支持 |
 | **ESMM** | Entire Space Multi-Task Model | SIGIR 2018 | 已支持 |
 | **ShareBottom** | Multitask Learning | - | 已支持 |
+| **AdaTT** | Adaptive Task-to-Task Communication for Multi-task Recommendation | - | 已支持 |
+| **PEPNet** | Parameter & Embedding Personalized Network for Large-scale Multi-task Recommendation | - | 已支持 |
+| **STAR** | Sparse-Activated Router with Top-K Experts for Multi-task Learning | - | 已支持 |
 
 ### 生成式模型
 
