@@ -1,4 +1,4 @@
-# RecForge
+# NextRec
 
 <div align="center">
 
@@ -16,7 +16,7 @@
 
 ## 简介
 
-RecForge 是一个基于 PyTorch 构建的现代推荐系统框架，为研究人员与工程团队提供统一的建模、训练与评估体验。框架采用模块化设计，内置丰富的模型实现、数据处理工具和工程化训练组件，可快速覆盖多种推荐场景。
+NextRec 是一个基于 PyTorch 构建的现代推荐系统框架，为研究人员与工程团队提供统一的建模、训练与评估体验。框架采用模块化设计，内置丰富的模型实现、数据处理工具和工程化训练组件，可快速覆盖多种推荐场景。
 
 ### 核心特性
 
@@ -31,15 +31,15 @@ RecForge 是一个基于 PyTorch 构建的现代推荐系统框架，为研究�
 
 ## 安装
 
-RecForge 提供两种主流的安装方式UV与传统 pip/source 安装。
+NextRec 提供两种主流的安装方式UV与传统 pip/source 安装。
 
 #### 方法一:使用 UV(推荐)
 
 UV 是一款高速、现代化的 Python 包管理器,能够带来更快的依赖解析与安装体验。
 
 ```bash
-git clone https://github.com/zerolovesea/RecForge.git
-cd RecForge
+git clone https://github.com/zerolovesea/NextRec.git
+cd NextRec
 
 # 如果尚未安装 UV,先安装它
 pip install uv
@@ -63,8 +63,8 @@ uv pip install -e .
 #### 方法二:使用 pip/source 
 
 ```bash
-git clone https://github.com/zerolovesea/RecForge.git
-cd RecForge
+git clone https://github.com/zerolovesea/NextRec.git
+cd NextRec
 
 # 安装依赖
 pip install -r requirements.txt
@@ -81,8 +81,8 @@ pip install -e .
 ```python
 import pandas as pd
 
-from recforge.models.ranking.deepfm import DeepFM
-from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from nextrec.models.ranking.deepfm import DeepFM
+from nextrec.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 df = pd.read_csv("dataset/movielens_100k.csv")
 
@@ -127,11 +127,11 @@ print(f'preds: {preds}')
 
 ### 数据预处理示例
 
-RecForge 提供统一的数据预处理接口，支持对稀疏特征，序列特征进行数据预处理：
+NextRec 提供统一的数据预处理接口，支持对稀疏特征，序列特征进行数据预处理：
 
 ```python
 import pandas as pd
-from recforge.data.preprocessor import DataProcessor
+from nextrec.data.preprocessor import DataProcessor
 
 df = pd.read_csv("dataset/movielens_100k.csv")
 
@@ -215,7 +215,7 @@ print(df.head())
 
 ### 报告错误
 
-在 [Issues](https://github.com/zerolovesea/RecForge/issues) 页面提交问题时，请包含：
+在 [Issues](https://github.com/zerolovesea/NextRec/issues) 页面提交问题时，请包含：
 
 - 错误描述
 - 重现步骤
@@ -233,14 +233,14 @@ print(df.head())
 
 ## 联系方式
 
-- **GitHub Issues**: [提交问题](https://github.com/zerolovesea/RecForge/issues)
+- **GitHub Issues**: [提交问题](https://github.com/zerolovesea/NextRec/issues)
 - **邮箱**: zyaztec@gmail.com
 
 ---
 
 ## 致谢
 
-RecForge 的开发受到以下优秀项目的启发：
+NextRec 的开发受到以下优秀项目的启发：
 
 - [torch-rechub](https://github.com/datawhalechina/torch-rechub) - 灵活且易于扩展的推荐系统框架
 - [FuxiCTR](https://github.com/reczoo/FuxiCTR) - 可配置、可调优、可复现的 CTR 预测库
@@ -253,6 +253,6 @@ RecForge 的开发受到以下优秀项目的启发：
 
 <div align="center">
 
-**[返回顶部](#recforge)**
+**[返回顶部](#nextrec)**
 
 </div>

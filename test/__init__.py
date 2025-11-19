@@ -1,3 +1,3 @@
 """
-RecForge Unit Tests Package
+NextRec Unit Tests Package
 """

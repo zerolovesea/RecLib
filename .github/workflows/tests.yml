@@ -1,4 +1,4 @@
-name: RecForge Unit Tests
+name: NextRec Unit Tests
 
 on:
   push:
@@ -43,23 +43,23 @@ jobs:
     - name: Verify installation
       run: |
         python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
-        python -c "import recforge; print('RecForge imported successfully')"
+        python -c "import nextrec; print('NextRec imported successfully')"
         
     - name: Run match model tests
       run: |
-        pytest test/test_match_models.py -v --cov=recforge/models/match --cov-report=xml
+        pytest test/test_match_models.py -v --cov=nextrec/models/match --cov-report=xml
         
     - name: Run ranking model tests
       run: |
-        pytest test/test_ranking_models.py -v --cov=recforge/models/ranking --cov-report=xml --cov-append
+        pytest test/test_ranking_models.py -v --cov=nextrec/models/ranking --cov-report=xml --cov-append
         
     - name: Run multi-task model tests
       run: |
-        pytest test/test_multitask_models.py -v --cov=recforge/models/multi_task --cov-report=xml --cov-append
+        pytest test/test_multitask_models.py -v --cov=nextrec/models/multi_task --cov-report=xml --cov-append
         
     - name: Generate coverage report
       run: |
-        pytest test/ --cov=recforge --cov-report=html --cov-report=term-missing
+        pytest test/ --cov=nextrec --cov-report=html --cov-report=term-missing
         
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
@@ -86,7 +86,7 @@ jobs:
       run: |
         echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "All unit tests completed for RecForge models:" >> $GITHUB_STEP_SUMMARY
+        echo "All unit tests completed for NextRec models:" >> $GITHUB_STEP_SUMMARY
         echo "- Match Models (DSSM, YoutubeDNN)" >> $GITHUB_STEP_SUMMARY
         echo "- Ranking Models (DeepFM, DIN)" >> $GITHUB_STEP_SUMMARY
         echo "- Multi-Task Models (MMOE, PLE, ESMM, ShareBottom)" >> $GITHUB_STEP_SUMMARY
