@@ -1,4 +1,4 @@
-# Testing Requirements for RecForge
+# Testing Requirements for NextRec
 # Install with: pip install -r test_requirements.txt
 
 # Core testing framework

@@ -1,4 +1,4 @@
-# RecForge
+# NextRec
 
 <div align="center">
 
@@ -15,7 +15,7 @@
 
 ## Introduction
 
-RecForge is a modern recommendation system framework built on PyTorch, providing a unified modeling, training, and evaluation experience for researchers and engineering teams. The framework adopts a modular design with rich built-in model implementations, data-processing tools, and production-ready training components, enabling quick coverage of multiple recommendation scenarios.
+NextRec is a modern recommendation system framework built on PyTorch, providing a unified modeling, training, and evaluation experience for researchers and engineering teams. The framework adopts a modular design with rich built-in model implementations, data-processing tools, and production-ready training components, enabling quick coverage of multiple recommendation scenarios.
 
 > This project draws on several open-source recommendation libraries, with the general layers referencing the mature implementations in [torch-rechub](https://github.com/datawhalechina/torch-rechub)￼. These part of codes is still in its early stage and is being gradually replaced with our own implementations. If you find any bugs, please submit them in the issue section. Contributions are welcome.
 
@@ -30,47 +30,13 @@ RecForge is a modern recommendation system framework built on PyTorch, providing
 
 ## Installation
 
-RecForge supports installation via **UV** or traditional **pip/source installation**.
-
-### Option 1: Using UV (Recommended)
-
-UV is a modern, high-performance Python package manager offering fast dependency resolution and installation.
-
 ```bash
-git clone https://github.com/zerolovesea/RecForge.git
-cd RecForge
+# release version
+pip install nextrec
 
-# Install UV if not already installed
-pip install uv
-
-# Create virtual environment and install dependencies
-uv sync
-
-# Activate the virtual environment
-source .venv/bin/activate  # macOS/Linux
-# or
-.venv\Scripts\activate     # Windows
-
-# Install the package in editable mode
-uv pip install -e .
+# pre-release version
+pip install -i https://test.pypi.org/simple/ nextrec
 ```
-
-**Note**: Make sure to deactivate any other conda/virtual environments before running `uv sync` to avoid environment conflicts.
-
-### Option 2: Using pip/source installation
-
-```bash
-git clone https://github.com/zerolovesea/RecForge.git
-cd RecForge
-
-# Install dependencies
-pip install -r requirements.txt
-pip install -r test_requirements.txt
-
-# Install the package in editable mode
-pip install -e .
-```
-
 ---
 
 ## 5-Minute Quick Start
@@ -80,8 +46,8 @@ The following example demonstrates a full DeepFM training & inference pipeline u
 ```python
 import pandas as pd
 
-from recforge.models.ranking.deepfm import DeepFM
-from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from nextrec.models.ranking.deepfm import DeepFM
+from nextrec.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 df = pd.read_csv("dataset/movielens_100k.csv")
 
@@ -128,11 +94,11 @@ The `tutorials/` directory provides examples for ranking, retrieval, multi-task 
 
 ## Data Processing Example
 
-RecForge offers a unified interface for preprocessing sparse and sequence features:
+NextRec offers a unified interface for preprocessing sparse and sequence features:
 
 ```python
 import pandas as pd
-from recforge.data.preprocessor import DataProcessor
+from nextrec.data.preprocessor import DataProcessor
 
 df = pd.read_csv("dataset/movielens_100k.csv")
 
@@ -154,19 +120,25 @@ print(df.head())
 
 | Model | Paper | Year | Status |
 |-------|-------|------|--------|
+| **FM** | Factorization Machines | ICDM 2010 | Supported |
+| **AFM** | Attentional Factorization Machines: Learning the Weight of Feature Interactions via Attention Networks | IJCAI 2017 | Supported |
 | **DeepFM** | DeepFM: A Factorization-Machine based Neural Network for CTR Prediction | IJCAI 2017 | Supported |
 | **Wide&Deep** | Wide & Deep Learning for Recommender Systems | DLRS 2016 | Supported |
 | **xDeepFM** | xDeepFM: Combining Explicit and Implicit Feature Interactions | KDD 2018 | Supported |
+| **FiBiNET** | FiBiNET: Combining Feature Importance and Bilinear Feature Interaction for CTR Prediction | RecSys 2019 | Supported |
+| **PNN** | Product-based Neural Networks for User Response Prediction | ICDM 2016 | Supported |
 | **AutoInt** | AutoInt: Automatic Feature Interaction Learning | CIKM 2019 | Supported |
 | **DCN** | Deep & Cross Network for Ad Click Predictions | ADKDD 2017 | Supported |
 | **DIN** | Deep Interest Network for CTR Prediction | KDD 2018 | Supported |
 | **DIEN** | Deep Interest Evolution Network | AAAI 2019 | Supported |
+| **MaskNet** | MaskNet: Feature-wise Gating Blocks for High-dimensional Sparse Recommendation Data | 2020 | Supported |
 
 ### Retrieval Models
 
 | Model | Paper | Year | Status |
 |-------|-------|------|--------|
 | **DSSM** | Learning Deep Structured Semantic Models | CIKM 2013 | Supported |
+| **DSSM v2** | DSSM with pairwise BPR-style optimization | - | Supported |
 | **YouTube DNN** | Deep Neural Networks for YouTube Recommendations | RecSys 2016 | Supported |
 | **MIND** | Multi-Interest Network with Dynamic Routing | CIKM 2019 | Supported |
 | **SDM** | Sequential Deep Matching Model | - | Supported |
@@ -236,7 +208,7 @@ This project is licensed under the [Apache 2.0 License](./LICENSE).
 
 ## Acknowledgements
 
-RecForge is inspired by the following great open-source projects:
+NextRec is inspired by the following great open-source projects:
 
 - **torch-rechub** - A Lighting Pytorch Framework for Recommendation Models, Easy-to-use and Easy-to-extend.
 - **FuxiCTR** — Configurable and reproducible CTR prediction library  
@@ -249,6 +221,6 @@ Special thanks to all open-source contributors!
 
 <div align="center">
 
-**[Back to Top](#recforge)**
+**[Back to Top](#nextrec)**
 
 </div>

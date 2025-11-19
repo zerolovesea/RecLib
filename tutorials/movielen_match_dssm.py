@@ -8,11 +8,11 @@ import numpy as np
 import pandas as pd
 
 
-from recforge.data.preprocessor import DataProcessor
-from recforge.basic.features import DenseFeature, SparseFeature
-from recforge.models.match.dssm import DSSM
+from nextrec.data.preprocessor import DataProcessor
+from nextrec.basic.features import DenseFeature, SparseFeature
+from nextrec.models.match.dssm import DSSM
 
-from recforge.data import build_eval_candidates
+from nextrec.data import build_eval_candidates
 
 def example_movielens_100k_dssm():
     df = pd.read_csv("dataset/movielens_100k.csv")

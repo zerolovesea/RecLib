@@ -122,3 +122,6 @@ online_test.py
 processor/
 
 pypirc.template
+
+# Sphinx build
+docs/_build/

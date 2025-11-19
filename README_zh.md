@@ -1,4 +1,4 @@
-# RecForge
+# NextRec
 
 <div align="center">
 
@@ -16,7 +16,7 @@
 
 ## 简介
 
-RecForge 是一个基于 PyTorch 构建的现代推荐系统框架，为研究人员与工程团队提供统一的建模、训练与评估体验。框架采用模块化设计，内置丰富的模型实现、数据处理工具和工程化训练组件，可快速覆盖多种推荐场景。
+NextRec 是一个基于 PyTorch 构建的现代推荐系统框架，为研究人员与工程团队提供统一的建模、训练与评估体验。框架采用模块化设计，内置丰富的模型实现、数据处理工具和工程化训练组件，可快速覆盖多种推荐场景。
 
 ### 核心特性
 
@@ -31,47 +31,12 @@ RecForge 是一个基于 PyTorch 构建的现代推荐系统框架，为研究�
 
 ## 安装
 
-RecForge 提供两种主流的安装方式UV与传统 pip/source 安装。
-
-#### 方法一:使用 UV(推荐)
-
-UV 是一款高速、现代化的 Python 包管理器,能够带来更快的依赖解析与安装体验。
-
 ```bash
-git clone https://github.com/zerolovesea/RecForge.git
-cd RecForge
+# 正式版
+pip install nextrec
 
-# 如果尚未安装 UV,先安装它
-pip install uv
-
-# 创建虚拟环境并安装依赖
-uv sync
-
-# 激活虚拟环境
-source .venv/bin/activate  # macOS/Linux
-# 或
-.venv\Scripts\activate     # Windows
-
-# 以可编辑模式安装包
-uv pip install -e .
-```
-
-**注意**: 在运行 `uv sync` 之前,请确保退出其他 conda/虚拟环境,以避免环境冲突。
-
-
-
-#### 方法二:使用 pip/source 
-
-```bash
-git clone https://github.com/zerolovesea/RecForge.git
-cd RecForge
-
-# 安装依赖
-pip install -r requirements.txt
-pip install -r test_requirements.txt
-
-# 以可编辑模式安装包
-pip install -e .
+# 测试版
+pip install -i https://test.pypi.org/simple/ nextrec
 ```
 
 ## 5分钟快速上手
@@ -81,8 +46,8 @@ pip install -e .
 ```python
 import pandas as pd
 
-from recforge.models.ranking.deepfm import DeepFM
-from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from nextrec.models.ranking.deepfm import DeepFM
+from nextrec.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 df = pd.read_csv("dataset/movielens_100k.csv")
 
@@ -127,11 +92,11 @@ print(f'preds: {preds}')
 
 ### 数据预处理示例
 
-RecForge 提供统一的数据预处理接口，支持对稀疏特征，序列特征进行数据预处理：
+NextRec 提供统一的数据预处理接口，支持对稀疏特征，序列特征进行数据预处理：
 
 ```python
 import pandas as pd
-from recforge.data.preprocessor import DataProcessor
+from nextrec.data.preprocessor import DataProcessor
 
 df = pd.read_csv("dataset/movielens_100k.csv")
 
@@ -152,19 +117,25 @@ print(df.head())
 
 | 模型 | 论文 | 年份 | 状态 |
 |------|------|------|------|
+| **FM** | Factorization Machines | ICDM 2010 | 已支持 |
+| **AFM** | Attentional Factorization Machines: Learning the Weight of Feature Interactions via Attention Networks | IJCAI 2017 | 已支持 |
 | **DeepFM** | DeepFM: A Factorization-Machine based Neural Network for CTR Prediction | IJCAI 2017 | 已支持 |
 | **Wide&Deep** | Wide & Deep Learning for Recommender Systems | DLRS 2016 | 已支持 |
 | **xDeepFM** | xDeepFM: Combining Explicit and Implicit Feature Interactions | KDD 2018 | 已支持 |
+| **FiBiNET** | FiBiNET: Combining Feature Importance and Bilinear Feature Interaction for CTR Prediction | RecSys 2019 | 已支持 |
+| **PNN** | Product-based Neural Networks for User Response Prediction | ICDM 2016 | 已支持 |
 | **AutoInt** | AutoInt: Automatic Feature Interaction Learning | CIKM 2019 | 已支持 |
 | **DCN** | Deep & Cross Network for Ad Click Predictions | ADKDD 2017 | 已支持 |
 | **DIN** | Deep Interest Network for Click-Through Rate Prediction | KDD 2018 | 已支持 |
 | **DIEN** | Deep Interest Evolution Network for Click-Through Rate Prediction | AAAI 2019 | 已支持 |
+| **MaskNet** | MaskNet: Introducing Feature-wise Gating Blocks for High-dimensional Sparse Recommendation Data | 2020 | 已支持 |
 
 ### 召回模型
 
 | 模型 | 论文 | 年份 | 状态 |
 |------|------|------|------|
 | **DSSM** | Learning Deep Structured Semantic Models | CIKM 2013 | 已支持 |
+| **DSSM v2** | DSSM with pairwise BPR-style optimization | - | 已支持 |
 | **YouTube DNN** | Deep Neural Networks for YouTube Recommendations | RecSys 2016 | 已支持 |
 | **MIND** | Multi-Interest Network with Dynamic Routing | CIKM 2019 | 已支持 |
 | **SDM** | Sequential Deep Matching Model | - | 已支持 |
@@ -209,7 +180,7 @@ print(df.head())
 
 ### 报告错误
 
-在 [Issues](https://github.com/zerolovesea/RecForge/issues) 页面提交问题时，请包含：
+在 [Issues](https://github.com/zerolovesea/NextRec/issues) 页面提交问题时，请包含：
 
 - 错误描述
 - 重现步骤
@@ -227,14 +198,14 @@ print(df.head())
 
 ## 联系方式
 
-- **GitHub Issues**: [提交问题](https://github.com/zerolovesea/RecForge/issues)
+- **GitHub Issues**: [提交问题](https://github.com/zerolovesea/NextRec/issues)
 - **邮箱**: zyaztec@gmail.com
 
 ---
 
 ## 致谢
 
-RecForge 的开发受到以下优秀项目的启发：
+NextRec 的开发受到以下优秀项目的启发：
 
 - [torch-rechub](https://github.com/datawhalechina/torch-rechub) - 灵活且易于扩展的推荐系统框架
 - [FuxiCTR](https://github.com/reczoo/FuxiCTR) - 可配置、可调优、可复现的 CTR 预测库
@@ -247,6 +218,6 @@ RecForge 的开发受到以下优秀项目的启发：
 
 <div align="center">
 
-**[返回顶部](#recforge)**
+**[返回顶部](#nextrec)**
 
 </div>

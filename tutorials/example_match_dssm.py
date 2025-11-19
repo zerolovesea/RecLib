@@ -13,8 +13,8 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from sklearn.model_selection import train_test_split
 
-from recforge.models.match.dssm import DSSM
-from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
+from nextrec.models.match.dssm import DSSM
+from nextrec.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 
 # Load generated data
@@ -140,7 +140,7 @@ print(f"Prediction sample: {predictions[:10]}")
 
 # Evaluate
 from sklearn.metrics import roc_auc_score, log_loss
-from recforge.basic.metrics import compute_gauc
+from nextrec.basic.metrics import compute_gauc
 
 auc = roc_auc_score(valid_df['label'].values, predictions)
 logloss = log_loss(valid_df['label'].values, predictions)
