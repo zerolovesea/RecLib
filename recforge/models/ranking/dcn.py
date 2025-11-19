@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 
 from recforge.basic.model import BaseModel
-from recforge.basic.layers import EmbeddingLayer, MLP, CrossNetwork
+from recforge.basic.layers import EmbeddingLayer, MLP, CrossNetwork, PredictionLayer
 from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 
@@ -86,6 +86,8 @@ class DCN(BaseModel):
             # Final layer only uses cross network output
             self.final_layer = nn.Linear(input_dim, 1)
 
+        self.prediction_layer = PredictionLayer(task_type=self.task_type)
+
         # Register regularization weights
         self._register_regularization_weights(
             embedding_attr='embedding',
@@ -115,5 +117,4 @@ class DCN(BaseModel):
         
         # Final prediction
         y = self.final_layer(combined)
-        y = torch.sigmoid(y)
-        return y.squeeze(1)
+        return self.prediction_layer(y)

@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 
 from recforge.basic.model import BaseModel
-from recforge.basic.layers import EmbeddingLayer, MLP
+from recforge.basic.layers import EmbeddingLayer, MLP, PredictionLayer
 from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 
@@ -92,6 +92,10 @@ class ESMM(BaseModel):
         
         # CVR tower
         self.cvr_tower = MLP(input_dim=input_dim, output_layer=True, **cvr_params)
+        self.prediction_layer = PredictionLayer(
+            task_type=self.task_type,
+            task_dims=[1, 1]
+        )
 
         # Register regularization weights
         self._register_regularization_weights(
@@ -111,11 +115,10 @@ class ESMM(BaseModel):
         
         # CTR prediction: P(click | impression)
         ctr_logit = self.ctr_tower(input_flat)  # [B, 1]
-        ctr = torch.sigmoid(ctr_logit)
-        
-        # CVR prediction: P(conversion | click)
         cvr_logit = self.cvr_tower(input_flat)  # [B, 1]
-        cvr = torch.sigmoid(cvr_logit)
+        logits = torch.cat([ctr_logit, cvr_logit], dim=1)
+        preds = self.prediction_layer(logits)
+        ctr, cvr = preds.chunk(2, dim=1)
         
         # CTCVR prediction: P(click & conversion | impression) = P(click) * P(conversion | click)
         ctcvr = ctr * cvr  # [B, 1]
@@ -123,5 +126,4 @@ class ESMM(BaseModel):
         # Output: [CTR, CTCVR]
         # Note: We supervise CTR with click labels and CTCVR with conversion labels
         y = torch.cat([ctr, ctcvr], dim=1)  # [B, 2]
-        
         return y  # [B, 2], where y[:, 0] is CTR and y[:, 1] is CTCVR

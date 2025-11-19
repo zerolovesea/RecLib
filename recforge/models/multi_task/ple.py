@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 
 from recforge.basic.model import BaseModel
-from recforge.basic.layers import EmbeddingLayer, MLP
+from recforge.basic.layers import EmbeddingLayer, MLP, PredictionLayer
 from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 
@@ -148,6 +148,10 @@ class PLE(BaseModel):
         for tower_params in tower_params_list:
             tower = MLP(input_dim=expert_output_dim, output_layer=True, **tower_params)
             self.towers.append(tower)
+        self.prediction_layer = PredictionLayer(
+            task_type=self.task_type,
+            task_dims=[1] * self.num_tasks
+        )
 
         # Register regularization weights
         self._register_regularization_weights(
@@ -217,6 +221,4 @@ class PLE(BaseModel):
         
         # Stack outputs: [B, num_tasks]
         y = torch.cat(task_outputs, dim=1)
-        y = torch.sigmoid(y)
-        
-        return y  # [B, num_tasks]
+        return self.prediction_layer(y)

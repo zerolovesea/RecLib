@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 
 from recforge.basic.model import BaseModel
-from recforge.basic.layers import EmbeddingLayer, MultiHeadSelfAttention
+from recforge.basic.layers import EmbeddingLayer, MultiHeadSelfAttention, PredictionLayer
 from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 
@@ -102,6 +102,7 @@ class AutoInt(BaseModel):
         
         # Final prediction layer
         self.fc = nn.Linear(num_fields * att_embedding_dim, 1)
+        self.prediction_layer = PredictionLayer(task_type=self.task_type)
 
         # Register regularization weights
         self._register_regularization_weights(
@@ -136,5 +137,4 @@ class AutoInt(BaseModel):
         # Flatten and predict
         attention_output_flat = attention_output.flatten(start_dim=1)  # [B, num_fields * att_embedding_dim]
         y = self.fc(attention_output_flat)  # [B, 1]
-        y = torch.sigmoid(y)
-        return y.squeeze(1)
+        return self.prediction_layer(y)

@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 
 from recforge.basic.model import BaseModel
-from recforge.basic.layers import LR, EmbeddingLayer, MLP
+from recforge.basic.layers import LR, EmbeddingLayer, MLP, PredictionLayer
 from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 
@@ -77,6 +77,7 @@ class WideDeep(BaseModel):
         deep_emb_dim_total = sum([f.embedding_dim for f in self.deep_features if not isinstance(f, DenseFeature)])
         dense_input_dim = sum([getattr(f, "embedding_dim", 1) or 1 for f in dense_features])
         self.mlp = MLP(input_dim=deep_emb_dim_total + dense_input_dim, **mlp_params)
+        self.prediction_layer = PredictionLayer(task_type=self.task_type)
 
         # Register regularization weights
         self._register_regularization_weights(
@@ -101,5 +102,4 @@ class WideDeep(BaseModel):
 
         # Combine wide and deep
         y = y_wide + y_deep
-        y = torch.sigmoid(y)  
-        return y.squeeze(1)
+        return self.prediction_layer(y)

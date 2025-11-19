@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 
 from recforge.basic.model import BaseModel
-from recforge.basic.layers import EmbeddingLayer, MLP, AttentionPoolingLayer
+from recforge.basic.layers import EmbeddingLayer, MLP, AttentionPoolingLayer, PredictionLayer
 from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 
@@ -104,6 +104,7 @@ class DIN(BaseModel):
         
         # MLP for final prediction
         self.mlp = MLP(input_dim=mlp_input_dim, **mlp_params)
+        self.prediction_layer = PredictionLayer(task_type=self.task_type)
 
         # Register regularization weights
         self._register_regularization_weights(
@@ -177,5 +178,4 @@ class DIN(BaseModel):
         
         # MLP prediction
         y = self.mlp(concat_input)  # [B, 1]
-        y = torch.sigmoid(y)
-        return y.squeeze(1)
+        return self.prediction_layer(y)

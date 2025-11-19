@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 
 from recforge.basic.model import BaseModel
-from recforge.basic.layers import FM, LR, EmbeddingLayer, MLP
+from recforge.basic.layers import FM, LR, EmbeddingLayer, MLP, PredictionLayer
 from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
 class DeepFM(BaseModel):
@@ -69,6 +69,7 @@ class DeepFM(BaseModel):
         self.linear = LR(fm_emb_dim_total)
         self.fm = FM(reduce_sum=True)
         self.mlp = MLP(input_dim=deep_emb_dim_total + dense_input_dim, **mlp_params)
+        self.prediction_layer = PredictionLayer(task_type=self.task_type)
 
         # Register regularization weights
         self._register_regularization_weights(
@@ -91,5 +92,4 @@ class DeepFM(BaseModel):
         y_deep = self.mlp(input_deep)  # [B, 1]
 
         y = y_linear + y_fm + y_deep
-        y = torch.sigmoid(y)  
-        return y.squeeze(1)
+        return self.prediction_layer(y)
