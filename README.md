@@ -32,7 +32,7 @@ RecForge is a modern recommendation system framework built on PyTorch, providing
 
 RecForge supports installation via **UV** or traditional **pip/source installation**.
 
-### Option 1: Using UV
+### Option 1: Using UV (Recommended)
 
 UV is a modern, high-performance Python package manager offering fast dependency resolution and installation.
 
@@ -40,20 +40,35 @@ UV is a modern, high-performance Python package manager offering fast dependency
 git clone https://github.com/zerolovesea/RecForge.git
 cd RecForge
 
-python -m uv sync
+# Install UV if not already installed
+pip install uv
+
+# Create virtual environment and install dependencies
+uv sync
+
+# Activate the virtual environment
 source .venv/bin/activate  # macOS/Linux
 # or
 .venv\Scripts\activate     # Windows
+
+# Install the package in editable mode
+uv pip install -e .
 ```
+
+**Note**: Make sure to deactivate any other conda/virtual environments before running `uv sync` to avoid environment conflicts.
 
 ### Option 2: Using pip/source installation
 
 ```bash
 git clone https://github.com/zerolovesea/RecForge.git
 cd RecForge
-pip install -e .
+
+# Install dependencies
 pip install -r requirements.txt
 pip install -r test_requirements.txt
+
+# Install the package in editable mode
+pip install -e .
 ```
 
 ---

@@ -19,6 +19,9 @@ from recforge.models.multi_task.share_bottom import ShareBottom
 from recforge.models.multi_task.mmoe import MMOE
 from recforge.models.multi_task.ple import PLE
 from recforge.models.multi_task.esmm import ESMM
+from recforge.models.multi_task.star import STAR
+from recforge.models.multi_task.pepnet import PEPNet
+from recforge.models.multi_task.adatt import AdaTT
 
 from test.test_utils import (
     assert_model_output_shape,
@@ -420,6 +423,192 @@ class TestPLE:
         assert_model_output_shape(output, (batch_size, 2))
         
         logger.info(f"PLE with {num_levels} levels test successful")
+
+
+class TestSTAR:
+    """Test suite for STAR (Sparse-activated Router)"""
+
+    def test_star_initialization(self, sample_dense_features, sample_sparse_features,
+                                 sample_sequence_features, device):
+        logger.info("=" * 80)
+        logger.info("Testing STAR initialization")
+        logger.info("=" * 80)
+
+        expert_params = {'dims': [128, 64], 'dropout': 0.1, 'activation': 'relu'}
+        tower_params_list = [
+            {'dims': [32], 'dropout': 0.1, 'activation': 'relu'},
+            {'dims': [32], 'dropout': 0.1, 'activation': 'relu'},
+        ]
+
+        model = STAR(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            expert_params=expert_params,
+            num_experts=4,
+            tower_params_list=tower_params_list,
+            top_k=2,
+            target=['ctr', 'cvr'],
+            task=['binary', 'binary'],
+            device=device
+        )
+
+        assert model.model_name == "STAR"
+        assert model.num_experts == 4
+        assert model.top_k == 2
+        logger.info("STAR initialization successful")
+
+    def test_star_forward_pass(self, sample_dense_features, sample_sparse_features,
+                               sample_sequence_features, sample_multitask_batch_data,
+                               device, batch_size, set_random_seed):
+        expert_params = {'dims': [64], 'dropout': 0.0, 'activation': 'relu'}
+        tower_params_list = [
+            {'dims': [16], 'dropout': 0.0, 'activation': 'relu'},
+            {'dims': [16], 'dropout': 0.0, 'activation': 'relu'},
+        ]
+
+        model = STAR(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            expert_params=expert_params,
+            num_experts=3,
+            tower_params_list=tower_params_list,
+            top_k=2,
+            target=['ctr', 'cvr'],
+            task=['binary', 'binary'],
+            device=device
+        )
+
+        data = {k: v.to(device) for k, v in sample_multitask_batch_data.items()
+                if not k.startswith('label')}
+        output = run_model_inference(model, data)
+
+        assert_model_output_shape(output, (batch_size, 2), "STAR output shape")
+        assert_model_output_range(output, 0.0, 1.0)
+        assert_no_nan_or_inf(output, "STAR output")
+
+
+class TestPEPNet:
+    """Test suite for PEPNet (Personalized Embedding & Parameter Network)"""
+
+    def test_pepnet_initialization(self, sample_dense_features, sample_sparse_features,
+                                   sample_sequence_features, device):
+        logger.info("=" * 80)
+        logger.info("Testing PEPNet initialization")
+        logger.info("=" * 80)
+
+        shared_bottom_params = {'dims': [128, 64], 'dropout': 0.1, 'activation': 'relu'}
+        tower_params_list = [
+            {'dims': [32], 'dropout': 0.0, 'activation': 'relu'},
+            {'dims': [32], 'dropout': 0.0, 'activation': 'relu'},
+        ]
+
+        model = PEPNet(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            shared_bottom_params=shared_bottom_params,
+            tower_params_list=tower_params_list,
+            target=['ctr', 'cvr'],
+            task=['binary', 'binary'],
+            device=device
+        )
+
+        assert model.model_name == "PEPNet"
+        assert model.num_tasks == 2
+        logger.info("PEPNet initialization successful")
+
+    def test_pepnet_forward_pass(self, sample_dense_features, sample_sparse_features,
+                                 sample_sequence_features, sample_multitask_batch_data,
+                                 device, batch_size, set_random_seed):
+        shared_bottom_params = {'dims': [64], 'dropout': 0.0, 'activation': 'relu'}
+        tower_params_list = [
+            {'dims': [16], 'dropout': 0.0, 'activation': 'relu'},
+            {'dims': [16], 'dropout': 0.0, 'activation': 'relu'},
+        ]
+
+        model = PEPNet(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            shared_bottom_params=shared_bottom_params,
+            tower_params_list=tower_params_list,
+            target=['ctr', 'cvr'],
+            task=['binary', 'binary'],
+            device=device
+        )
+
+        data = {k: v.to(device) for k, v in sample_multitask_batch_data.items()
+                if not k.startswith('label')}
+        output = run_model_inference(model, data)
+
+        assert_model_output_shape(output, (batch_size, 2), "PEPNet output shape")
+        assert_model_output_range(output, 0.0, 1.0)
+        assert_no_nan_or_inf(output, "PEPNet output")
+
+
+class TestAdaTT:
+    """Test suite for AdaTT (Adaptive Task-to-Task)"""
+
+    def test_adatt_initialization(self, sample_dense_features, sample_sparse_features,
+                                  sample_sequence_features, device):
+        logger.info("=" * 80)
+        logger.info("Testing AdaTT initialization")
+        logger.info("=" * 80)
+
+        shared_bottom_params = {'dims': [128, 64], 'dropout': 0.1, 'activation': 'relu'}
+        tower_params_list = [
+            {'dims': [32], 'dropout': 0.0, 'activation': 'relu'},
+            {'dims': [32], 'dropout': 0.0, 'activation': 'relu'},
+        ]
+
+        model = AdaTT(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            shared_bottom_params=shared_bottom_params,
+            tower_params_list=tower_params_list,
+            target=['ctr', 'cvr'],
+            task=['binary', 'binary'],
+            num_heads=2,
+            transfer_dim=64,
+            device=device
+        )
+
+        assert model.model_name == "AdaTT"
+        assert model.num_tasks == 2
+        logger.info("AdaTT initialization successful")
+
+    def test_adatt_forward_pass(self, sample_dense_features, sample_sparse_features,
+                                sample_sequence_features, sample_multitask_batch_data,
+                                device, batch_size, set_random_seed):
+        shared_bottom_params = {'dims': [64], 'dropout': 0.0, 'activation': 'relu'}
+        tower_params_list = [
+            {'dims': [16], 'dropout': 0.0, 'activation': 'relu'},
+            {'dims': [16], 'dropout': 0.0, 'activation': 'relu'},
+        ]
+
+        model = AdaTT(
+            dense_features=sample_dense_features,
+            sparse_features=sample_sparse_features,
+            sequence_features=sample_sequence_features,
+            shared_bottom_params=shared_bottom_params,
+            tower_params_list=tower_params_list,
+            target=['ctr', 'cvr'],
+            task=['binary', 'binary'],
+            transfer_dim=64,
+            num_heads=2,
+            device=device
+        )
+
+        data = {k: v.to(device) for k, v in sample_multitask_batch_data.items()
+                if not k.startswith('label')}
+        output = run_model_inference(model, data)
+
+        assert_model_output_shape(output, (batch_size, 2), "AdaTT output shape")
+        assert_model_output_range(output, 0.0, 1.0)
+        assert_no_nan_or_inf(output, "AdaTT output")
 
 
 class TestESMM:
