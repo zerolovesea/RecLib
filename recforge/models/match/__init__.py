@@ -1,8 +1,3 @@
-"""
-Match (Retrieval/Recall) Models
-召回/匹配模型
-"""
-
 from .dssm import DSSM
 from .dssm_v2 import DSSM_v2
 from .youtube_dnn import YoutubeDNN
