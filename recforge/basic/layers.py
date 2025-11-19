@@ -1,79 +1,206 @@
 """
-Layers definitions for recommendation models.
+Layer implementations used across RecForge models.
 
-Date: create on 27/10/2025
+Date: create on 27/10/2025, update on 19/11/2025
 Author:
     Yang Zhou,zyaztec@gmail.com
 """
+
+from __future__ import annotations
+
+from itertools import combinations
+from typing import Iterable, Sequence, Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from typing import Union
-from itertools import combinations
-
 from recforge.basic.activation import activation_layer
+from recforge.basic.features import DenseFeature, SequenceFeature, SparseFeature
 from recforge.utils.initializer import get_initializer_fn
-from recforge.basic.features import DenseFeature, SparseFeature, SequenceFeature
+
+Feature = Union[DenseFeature, SparseFeature, SequenceFeature]
+
+__all__ = [
+    "PredictionLayer",
+    "EmbeddingLayer",
+    "InputMask",
+    "LR",
+    "ConcatPooling",
+    "AveragePooling",
+    "SumPooling",
+    "MLP",
+    "FM",
+    "FFM",
+    "CEN",
+    "CIN",
+    "CrossLayer",
+    "CrossNetwork",
+    "CrossNetV2",
+    "CrossNetMix",
+    "SENETLayer",
+    "BiLinearInteractionLayer",
+    "MultiInterestSA",
+    "CapsuleNetwork",
+    "MultiHeadSelfAttention",
+    "AttentionPoolingLayer",
+    "DynamicGRU",
+    "AUGRU",
+]
 
 
 class PredictionLayer(nn.Module):
-    def __init__(self, task_type='classification'):
-        super(PredictionLayer, self).__init__()
-        if task_type not in ["classification", "regression"]:
-            raise ValueError("task_type must be classification or regression")
-        self.task_type = task_type
+    _CLASSIFICATION_TASKS = {"classification", "binary", "ctr", "ranking", "match", "matching"}
+    _REGRESSION_TASKS = {"regression", "continuous"}
+    _MULTICLASS_TASKS = {"multiclass", "softmax"}
 
-    def forward(self, x):
-        if self.task_type == "classification":
-            x = torch.sigmoid(x)
-        return x.squeeze(-1)
+    def __init__(
+        self,
+        task_type: Union[str, Sequence[str]] = "binary",
+        task_dims: Union[int, Sequence[int], None] = None,
+        use_bias: bool = True,
+        return_logits: bool = False,
+    ):
+        super().__init__()
+
+        if isinstance(task_type, str):
+            self.task_types = [task_type]
+        else:
+            self.task_types = list(task_type)
+
+        if len(self.task_types) == 0:
+            raise ValueError("At least one task_type must be specified.")
+
+        if task_dims is None:
+            dims = [1] * len(self.task_types)
+        elif isinstance(task_dims, int):
+            dims = [task_dims]
+        else:
+            dims = list(task_dims)
+
+        if len(dims) not in (1, len(self.task_types)):
+            raise ValueError(
+                "task_dims must be None, a single int (shared), or a sequence of the same length as task_type."
+            )
+
+        if len(dims) == 1 and len(self.task_types) > 1:
+            dims = dims * len(self.task_types)
+
+        self.task_dims = dims
+        self.total_dim = sum(self.task_dims)
+        self.return_logits = return_logits
+
+        # Keep slice offsets per task
+        start = 0
+        self._task_slices: list[tuple[int, int]] = []
+        for dim in self.task_dims:
+            if dim < 1:
+                raise ValueError("Each task dimension must be >= 1.")
+            self._task_slices.append((start, start + dim))
+            start += dim
+
+        if use_bias:
+            self.bias = nn.Parameter(torch.zeros(self.total_dim))
+        else:
+            self.register_parameter("bias", None)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() == 1:
+            x = x.unsqueeze(-1)
+
+        if x.shape[-1] != self.total_dim:
+            raise ValueError(
+                f"Input last dimension ({x.shape[-1]}) does not match expected total dimension ({self.total_dim})."
+            )
+
+        logits = x if self.bias is None else x + self.bias
+        outputs: list[torch.Tensor] = []
+
+        for task_type, (start, end) in zip(self.task_types, self._task_slices):
+            task_logits = logits[..., start:end]
+            if self.return_logits:
+                outputs.append(task_logits)
+                continue
+
+            activation = self._get_activation(task_type)
+            outputs.append(activation(task_logits))
+
+        result = torch.cat(outputs, dim=-1)
+        if result.shape[-1] == 1:
+            result = result.squeeze(-1)
+        return result
+
+    def _get_activation(self, task_type: str):
+        task = task_type.lower()
+        if task in self._CLASSIFICATION_TASKS:
+            return torch.sigmoid
+        if task in self._REGRESSION_TASKS:
+            return lambda x: x
+        if task in self._MULTICLASS_TASKS:
+            return lambda x: torch.softmax(x, dim=-1)
+        raise ValueError(f"Unsupported task_type '{task_type}'.")
 
 
 class EmbeddingLayer(nn.Module):
-    def __init__(self, features: list[Union[DenseFeature, SparseFeature, SequenceFeature]]):
+    def __init__(self, features: Sequence[Feature]):
         super().__init__()
-        self.features = features
+        self.features = list(features)
         self.embed_dict = nn.ModuleDict()
-        self.dense_features = []
+        self.dense_transforms = nn.ModuleDict()
+        self.dense_input_dims: dict[str, int] = {}
 
-        for fea in features:
-            if isinstance(fea, (SparseFeature, SequenceFeature)):
-                if fea.embedding_name not in self.embed_dict:
-                    embed = nn.Embedding(
-                        num_embeddings=fea.vocab_size,
-                        embedding_dim=fea.embedding_dim,
-                        padding_idx=fea.padding_idx,
-                    )
-                    embed.weight.requires_grad = fea.trainable
+        for feature in self.features:
+            if isinstance(feature, (SparseFeature, SequenceFeature)):
+                if feature.embedding_name in self.embed_dict:
+                    continue
 
-                    initialization = get_initializer_fn(
-                        init_type=fea.init_type,
-                        activation='linear',
-                        param=fea.init_params
-                    )
-                    initialization(embed.weight)
-                    
-                    self.embed_dict[fea.embedding_name] = embed
+                embedding = nn.Embedding(
+                    num_embeddings=feature.vocab_size,
+                    embedding_dim=feature.embedding_dim,
+                    padding_idx=feature.padding_idx,
+                )
+                embedding.weight.requires_grad = feature.trainable
 
-            elif isinstance(fea, DenseFeature):
-                self.dense_features.append(fea.name)
+                initialization = get_initializer_fn(
+                    init_type=feature.init_type,
+                    activation="linear",
+                    param=feature.init_params,
+                )
+                initialization(embedding.weight)
+                self.embed_dict[feature.embedding_name] = embedding
 
-    def forward(self, x, features, squeeze_dim=False):
-        sparse_embeds = []
-        dense_values = []
+            elif isinstance(feature, DenseFeature):
+                if feature.name in self.dense_transforms:
+                    continue
+                in_dim = max(int(getattr(feature, "input_dim", 1)), 1)
+                out_dim = max(int(getattr(feature, "embedding_dim", None) or in_dim), 1)
+                dense_linear = nn.Linear(in_dim, out_dim, bias=True)
+                nn.init.xavier_uniform_(dense_linear.weight)
+                nn.init.zeros_(dense_linear.bias)
+                self.dense_transforms[feature.name] = dense_linear
+                self.dense_input_dims[feature.name] = in_dim
+
+            else:
+                raise TypeError(f"Unsupported feature type: {type(feature)}")
+
+    def forward(
+        self,
+        x: dict[str, torch.Tensor],
+        features: Sequence[Feature],
+        squeeze_dim: bool = False,
+    ) -> torch.Tensor:
+        sparse_embeds: list[torch.Tensor] = []
+        dense_embeds: list[torch.Tensor] = []
 
         for feature in features:
             if isinstance(feature, SparseFeature):
                 embed = self.embed_dict[feature.embedding_name]
-                sparse_emb = embed(x[feature.name].long()).unsqueeze(1)
-                sparse_embeds.append(sparse_emb)
+                sparse_embeds.append(embed(x[feature.name].long()).unsqueeze(1))
 
             elif isinstance(feature, SequenceFeature):
                 seq_input = x[feature.name].long()
                 if feature.max_len is not None and seq_input.size(1) > feature.max_len:
-                    seq_input = seq_input[:, -feature.max_len:]
+                    seq_input = seq_input[:, -feature.max_len :]
 
                 embed = self.embed_dict[feature.embedding_name]
                 seq_emb = embed(seq_input)  # [B, seq_len, emb_dim]
@@ -85,41 +212,75 @@ class EmbeddingLayer(nn.Module):
                 elif feature.combiner == "concat":
                     pooling_layer = ConcatPooling()
                 else:
-                    raise ValueError(f"Unknown combiner: {feature.combiner}")
+                    raise ValueError(f"Unknown combiner for {feature.name}: {feature.combiner}")
+
                 feature_mask = InputMask()(x, feature, seq_input)
                 sparse_embeds.append(pooling_layer(seq_emb, feature_mask).unsqueeze(1))
 
             elif isinstance(feature, DenseFeature):
-                val = x[feature.name].float()
-                if val.dim() == 1:
-                    val = val.unsqueeze(1)
-                dense_values.append(val)
-
-        dense_tensor = torch.cat(dense_values, dim=1) if len(dense_values) > 0 else None
+                dense_embeds.append(self._project_dense(feature, x))
 
         if squeeze_dim:
-            # Flatten each sparse embedding first, then concatenate
-            # This handles features with different embedding dimensions
-            flattened_sparse = []
-            for emb in sparse_embeds:
-                flattened_sparse.append(emb.flatten(start_dim=1))  # [B, emb_dim]
-            
-            if len(flattened_sparse) > 0 and dense_tensor is not None:
-                return torch.cat(flattened_sparse + [dense_tensor], dim=1)
-            elif len(flattened_sparse) > 0:
-                return torch.cat(flattened_sparse, dim=1)
-            elif dense_tensor is not None:
-                return dense_tensor
-            else:
-                raise ValueError("No input features found")
+            flattened_sparse = [emb.flatten(start_dim=1) for emb in sparse_embeds]
+            pieces = []
+            if flattened_sparse:
+                pieces.append(torch.cat(flattened_sparse, dim=1))
+            if dense_embeds:
+                pieces.append(torch.cat(dense_embeds, dim=1))
+
+            if not pieces:
+                raise ValueError("No input features found for EmbeddingLayer.")
+
+            return pieces[0] if len(pieces) == 1 else torch.cat(pieces, dim=1)
+
+        # squeeze_dim=False requires embeddings with identical last dimension
+        output_embeddings = list(sparse_embeds)
+        if dense_embeds:
+            target_dim = None
+            if output_embeddings:
+                target_dim = output_embeddings[0].shape[-1]
+            elif len({emb.shape[-1] for emb in dense_embeds}) == 1:
+                target_dim = dense_embeds[0].shape[-1]
+
+            if target_dim is not None:
+                aligned_dense = [
+                    emb.unsqueeze(1) for emb in dense_embeds if emb.shape[-1] == target_dim
+                ]
+                output_embeddings.extend(aligned_dense)
+
+        if not output_embeddings:
+            raise ValueError(
+                "squeeze_dim=False requires at least one sparse/sequence feature or "
+                "dense features with identical projected dimensions."
+            )
+
+        return torch.cat(output_embeddings, dim=1)
+
+    def _project_dense(self, feature: DenseFeature, x: dict[str, torch.Tensor]) -> torch.Tensor:
+        if feature.name not in x:
+            raise KeyError(f"Dense feature '{feature.name}' is missing from input.")
+
+        value = x[feature.name].float()
+        if value.dim() == 1:
+            value = value.unsqueeze(-1)
         else:
-            # For squeeze_dim=False, we need same embedding dimension to concat
-            sparse_tensor = torch.cat(sparse_embeds, dim=1) if len(sparse_embeds) > 0 else None
-            return sparse_tensor  # [B, num_features, emb_dim]
+            value = value.view(value.size(0), -1)
+
+        dense_layer = self.dense_transforms[feature.name]
+        expected_in_dim = self.dense_input_dims[feature.name]
+        if value.shape[1] != expected_in_dim:
+            raise ValueError(
+                f"Dense feature '{feature.name}' expects {expected_in_dim} inputs but "
+                f"got {value.shape[1]}."
+            )
+
+        return dense_layer(value)
 
 
 
 class InputMask(nn.Module):
+    """Utility module to build sequence masks for pooling layers."""
+
     def __init__(self):
         super().__init__()
 
@@ -135,6 +296,8 @@ class InputMask(nn.Module):
 
 
 class LR(nn.Module):
+    """Wide component from Wide&Deep (Cheng et al., 2016)."""
+
     def __init__(self, input_dim, sigmoid=False):
         super().__init__()
         self.sigmoid = sigmoid
@@ -148,6 +311,7 @@ class LR(nn.Module):
 
 
 class ConcatPooling(nn.Module):
+    """Concatenates sequence embeddings along the temporal dimension."""
 
     def __init__(self):
         super().__init__()
@@ -157,6 +321,7 @@ class ConcatPooling(nn.Module):
 
 
 class AveragePooling(nn.Module):
+    """Mean pooling with optional padding mask."""
 
     def __init__(self):
         super().__init__()
@@ -171,6 +336,7 @@ class AveragePooling(nn.Module):
 
 
 class SumPooling(nn.Module):
+    """Sum pooling with optional padding mask."""
 
     def __init__(self):
         super().__init__()
@@ -183,6 +349,7 @@ class SumPooling(nn.Module):
 
 
 class MLP(nn.Module):
+    """Stacked fully connected layers used in the deep component."""
 
     def __init__(self, input_dim, output_layer=True, dims=None, dropout=0, activation="relu"):
         super().__init__()
@@ -204,6 +371,7 @@ class MLP(nn.Module):
 
 
 class FM(nn.Module):
+    """Factorization Machine (Rendle, 2010) second-order interaction term."""
 
     def __init__(self, reduce_sum=True):
         super().__init__()
@@ -219,6 +387,7 @@ class FM(nn.Module):
 
 
 class CIN(nn.Module):
+    """Compressed Interaction Network from xDeepFM (Lian et al., 2018)."""
 
     def __init__(self, input_dim, cin_size, split_half=True):
         super().__init__()
@@ -251,6 +420,7 @@ class CIN(nn.Module):
         return self.fc(torch.sum(torch.cat(xs, dim=1), 2))
 
 class CrossLayer(nn.Module):
+    """Single cross layer used in DCN (Wang et al., 2017)."""
 
     def __init__(self, input_dim):
         super(CrossLayer, self).__init__()
@@ -263,6 +433,7 @@ class CrossLayer(nn.Module):
 
 
 class CrossNetwork(nn.Module):
+    """Stacked Cross Layers from DCN (Wang et al., 2017)."""
 
     def __init__(self, input_dim, num_layers):
         super().__init__()
@@ -281,6 +452,7 @@ class CrossNetwork(nn.Module):
         return x
 
 class CrossNetV2(nn.Module):
+    """Vector-wise cross network proposed in DCN V2 (Wang et al., 2021)."""
     def __init__(self, input_dim, num_layers):
         super().__init__()
         self.num_layers = num_layers
@@ -295,6 +467,7 @@ class CrossNetV2(nn.Module):
         return x
 
 class CrossNetMix(nn.Module):
+    """Mixture of low-rank cross experts from DCN V2 (Wang et al., 2021)."""
 
     def __init__(self, input_dim, num_layers=2, low_rank=32, num_experts=4):
         super(CrossNetMix, self).__init__()
@@ -353,6 +526,7 @@ class CrossNetMix(nn.Module):
         return x_l
 
 class SENETLayer(nn.Module):
+    """Squeeze-and-Excitation block adopted by FiBiNET (Huang et al., 2019)."""
 
     def __init__(self, num_fields, reduction_ratio=3):
         super(SENETLayer, self).__init__()
@@ -368,6 +542,7 @@ class SENETLayer(nn.Module):
         return v
 
 class BiLinearInteractionLayer(nn.Module):
+    """Bilinear feature interaction from FiBiNET (Huang et al., 2019)."""
 
     def __init__(self, input_dim, num_fields, bilinear_type = "field_interaction"):
         super(BiLinearInteractionLayer, self).__init__()
@@ -393,6 +568,7 @@ class BiLinearInteractionLayer(nn.Module):
 
 
 class MultiInterestSA(nn.Module):
+    """Multi-interest self-attention extractor from MIND (Li et al., 2019)."""
 
     def __init__(self, embedding_dim, interest_num, hidden_dim=None):
         super(MultiInterestSA, self).__init__()
@@ -417,6 +593,7 @@ class MultiInterestSA(nn.Module):
 
 
 class CapsuleNetwork(nn.Module):
+    """Dynamic routing capsule network used in MIND (Li et al., 2019)."""
 
     def __init__(self, embedding_dim, seq_len, bilinear_type=2, interest_num=4, routing_times=3, relu_layer=False):
         super(CapsuleNetwork, self).__init__()
@@ -501,6 +678,7 @@ class CapsuleNetwork(nn.Module):
 
 
 class FFM(nn.Module):
+    """Field-aware Factorization Machine (Juan et al., 2016)."""
 
     def __init__(self, num_fields, reduce_sum=True):
         super().__init__()        
@@ -522,6 +700,7 @@ class FFM(nn.Module):
 
 
 class CEN(nn.Module):
+    """Field-attentive interaction network from FAT-DeepFFM (Wang et al., 2020)."""
 
     def __init__(self, embed_dim, num_field_crosses, reduction_ratio):
         super().__init__()        
@@ -546,7 +725,7 @@ class CEN(nn.Module):
 
 
 class MultiHeadSelfAttention(nn.Module):
-    """Multi-head self-attention layer for AutoInt"""
+    """Multi-head self-attention layer from AutoInt (Song et al., 2019)."""
     
     def __init__(self, embedding_dim, num_heads=2, dropout=0.0, use_residual=True):
         super().__init__()
@@ -676,6 +855,7 @@ class AttentionPoolingLayer(nn.Module):
 
 
 class DynamicGRU(nn.Module):
+    """Dynamic GRU unit with auxiliary loss path from DIEN (Zhou et al., 2019)."""
     """
     GRU with dynamic routing for DIEN
     """
@@ -739,6 +919,7 @@ class DynamicGRU(nn.Module):
 
 
 class AUGRU(nn.Module):
+    """Attention-aware GRU update gate used in DIEN (Zhou et al., 2019)."""
     """
     Attention-based GRU for DIEN
     Uses attention scores to weight the update of hidden states

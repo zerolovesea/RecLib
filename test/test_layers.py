@@ -544,6 +544,38 @@ class TestPredictionLayer:
         
         logger.info("PredictionLayer regression test successful")
 
+    def test_prediction_layer_multitask(self):
+        """PredictionLayer should support multiple task heads"""
+        pred_layer = PredictionLayer(
+            task_type=['binary', 'regression'],
+            task_dims=[1, 1],
+        )
+
+        x = torch.randn(16, 2)
+        output = pred_layer(x)
+
+        assert output.shape == (16, 2)
+        assert torch.all(output[:, 0] >= 0) and torch.all(output[:, 0] <= 1)
+
+    def test_prediction_layer_multiclass(self):
+        """PredictionLayer should support softmax outputs"""
+        pred_layer = PredictionLayer(task_type='multiclass', task_dims=3)
+
+        x = torch.randn(8, 3)
+        output = pred_layer(x)
+
+        assert output.shape == (8, 3)
+        probs_sum = output.sum(dim=-1)
+        assert torch.allclose(probs_sum, torch.ones_like(probs_sum), atol=1e-5)
+
+    def test_prediction_layer_return_logits(self):
+        """PredictionLayer can be configured to skip final activation"""
+        pred_layer = PredictionLayer(task_type='binary', return_logits=True, use_bias=False)
+
+        x = torch.randn(10, 1)
+        output = pred_layer(x)
+        assert torch.allclose(output, x.squeeze(-1))
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
