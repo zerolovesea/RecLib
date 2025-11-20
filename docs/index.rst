@@ -84,8 +84,11 @@ Train and predict on MovieLens-style data:
 Core API guide
 --------------
 Feature definitions (``nextrec.basic.features``):
+
 - ``DenseFeature(name, embedding_dim=1)`` for continuous values.
+
 - ``SparseFeature(name, vocab_size, embedding_dim=auto, padding_idx=None, l1_reg=0.0, l2_reg=1e-5, trainable=True)`` for categorical ids.
+
 - ``SequenceFeature(name, vocab_size, max_len=20, combiner="mean", padding_idx=None, l1_reg=0.0, l2_reg=1e-5, trainable=True)`` for histories with pooling.
 
 Data processing (``nextrec.data.preprocessor.DataProcessor``):
@@ -135,9 +138,13 @@ Training workflow (``nextrec.basic.model.BaseModel`` interface):
    model.load_weights("checkpoint.model", map_location="cpu")
 
 Model zoo (modules under ``nextrec.models``):
+
 - Ranking: FM, AFM, DeepFM, Wide&Deep, xDeepFM, FiBiNET, PNN, AutoInt, DCN, DIN, DIEN, MaskNet.
+
 - Retrieval: DSSM, DSSM v2 (pairwise), YouTube DNN, MIND, SDM.
+
 - Multi-task: MMOE, PLE, ESMM, ShareBottom.
+
 - Generative (in progress): TIGER, HSTU.
 
 Tutorials and scripts
