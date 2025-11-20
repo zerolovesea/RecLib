@@ -8,6 +8,7 @@ Author:
 
 from typing import Optional
 from nextrec.utils import get_auto_embedding_dim
+import numpy as np
 
 class BaseFeature(object):
     def __repr__(self):
@@ -34,6 +35,7 @@ class SequenceFeature(BaseFeature):
         l1_reg: float = 0.0,
         l2_reg: float = 1e-5,
         trainable: bool = True,
+        pretrained_weight: np.ndarray | None = None,
     ):
 
         self.name = name
@@ -49,6 +51,7 @@ class SequenceFeature(BaseFeature):
         self.l1_reg = l1_reg
         self.l2_reg = l2_reg
         self.trainable = trainable
+        self.pretrained_weight = pretrained_weight
     
 class SparseFeature(BaseFeature):
     def __init__(self, 
@@ -61,7 +64,8 @@ class SparseFeature(BaseFeature):
                  init_params: dict|None = None,
                  l1_reg: float = 0.0,                 
                  l2_reg: float = 1e-5,
-                 trainable: bool = True):
+                 trainable: bool = True,
+                 pretrained_weight: np.ndarray | None = None):
         
         self.name = name
         self.vocab_size = vocab_size
@@ -74,14 +78,59 @@ class SparseFeature(BaseFeature):
         self.l1_reg = l1_reg
         self.l2_reg = l2_reg
         self.trainable = trainable
+        self.pretrained_weight = pretrained_weight
+
+    def set_pretrained_weight(self, weight):
+        """Attach a pretrained embedding matrix."""
+        self.pretrained_weight = weight
 
 class DenseFeature(BaseFeature):
     def __init__(self, 
                  name: str, 
-                 embedding_dim: int = 1):
+                 embedding_dim: int = 1,
+                 input_dim: int | None = None,
+                 project: bool = True,
+                 trainable: bool = True):
 
         self.name = name
         self.embedding_dim = embedding_dim
+        self.input_dim = input_dim or embedding_dim or 1
+        self.project = project
+        self.trainable = trainable
+
+class PretrainedDenseFeature(DenseFeature):
+    """Dense feature produced by a pretrained encoder (text/image/audio/video)."""
+    def __init__(
+        self,
+        name: str,
+        embedding_dim: Optional[int] = None,
+        input_dim: Optional[int] = None,
+        model_name: str | None = None,
+        encoder: Optional[callable] = None,
+        max_length: Optional[int] = None,
+        normalize: bool = False,
+    ):
+        super().__init__(
+            name=name,
+            embedding_dim=embedding_dim or input_dim or 32,
+            input_dim=input_dim or embedding_dim,
+            project=False,
+            trainable=True,
+        )
+        self.model_name = model_name
+        self.encoder = encoder
+        self.max_length = max_length
+        self.normalize = normalize
 
 
+class TextFeature(PretrainedDenseFeature):
+    pass
 
+class ImageFeature(PretrainedDenseFeature):
+    pass
+
+class AudioFeature(PretrainedDenseFeature):
+    pass
+
+class VideoFeature(PretrainedDenseFeature):
+    pass
