@@ -13,6 +13,7 @@ from nextrec.basic.model import BaseModel
 from nextrec.basic.layers import FM, LR, EmbeddingLayer, MLP, PredictionLayer
 from nextrec.basic.features import DenseFeature, SparseFeature, SequenceFeature
 
+
 class DeepFM(BaseModel):
     @property
     def model_name(self):
@@ -21,23 +22,25 @@ class DeepFM(BaseModel):
     @property
     def task_type(self):
         return "binary"
-    
-    def __init__(self,
-                 dense_features: list[DenseFeature]|list = [],
-                 sparse_features: list[SparseFeature]|list = [],
-                 sequence_features: list[SequenceFeature]|list = [],
-                 mlp_params: dict = {},
-                 target: list[str]|str = [],
-                 optimizer: str = "adam",
-                 optimizer_params: dict = {},
-                 loss: str | nn.Module | None = "bce",
-                 device: str = 'cpu',
-                 model_id: str = "baseline",
-                 embedding_l1_reg=1e-6,
-                 dense_l1_reg=1e-5,
-                 embedding_l2_reg=1e-5,
-                 dense_l2_reg=1e-4):
-        
+
+    def __init__(
+        self,
+        dense_features: list[DenseFeature] | list = [],
+        sparse_features: list[SparseFeature] | list = [],
+        sequence_features: list[SequenceFeature] | list = [],
+        mlp_params: dict = {},
+        target: list[str] | str = [],
+        optimizer: str = "adam",
+        optimizer_params: dict = {},
+        loss: str | nn.Module | None = "bce",
+        device: str = "cpu",
+        model_id: str = "baseline",
+        embedding_l1_reg=1e-6,
+        dense_l1_reg=1e-5,
+        embedding_l2_reg=1e-5,
+        dense_l2_reg=1e-4,
+    ):
+
         super(DeepFM, self).__init__(
             dense_features=dense_features,
             sparse_features=sparse_features,
@@ -50,21 +53,29 @@ class DeepFM(BaseModel):
             embedding_l2_reg=embedding_l2_reg,
             dense_l2_reg=dense_l2_reg,
             early_stop_patience=20,
-            model_id=model_id
+            model_id=model_id,
         )
 
         self.loss = loss
         if self.loss is None:
             self.loss = "bce"
-            
+
         self.fm_features = sparse_features + sequence_features
         self.deep_features = dense_features + sparse_features + sequence_features
 
         self.embedding = EmbeddingLayer(features=self.deep_features)
 
         fm_emb_dim_total = sum([f.embedding_dim for f in self.fm_features])
-        deep_emb_dim_total = sum([f.embedding_dim for f in self.deep_features if not isinstance(f, DenseFeature)])
-        dense_input_dim = sum([getattr(f, "embedding_dim", 1) or 1 for f in dense_features])
+        deep_emb_dim_total = sum(
+            [
+                f.embedding_dim
+                for f in self.deep_features
+                if not isinstance(f, DenseFeature)
+            ]
+        )
+        dense_input_dim = sum(
+            [getattr(f, "embedding_dim", 1) or 1 for f in dense_features]
+        )
 
         self.linear = LR(fm_emb_dim_total)
         self.fm = FM(reduce_sum=True)
@@ -73,15 +84,10 @@ class DeepFM(BaseModel):
 
         # Register regularization weights
         self._register_regularization_weights(
-            embedding_attr='embedding',
-            include_modules=['linear', 'mlp']
+            embedding_attr="embedding", include_modules=["linear", "mlp"]
         )
 
-        self.compile(
-            optimizer=optimizer,
-            optimizer_params=optimizer_params,
-            loss=loss
-        )
+        self.compile(optimizer=optimizer, optimizer_params=optimizer_params, loss=loss)
 
     def forward(self, x):
         input_deep = self.embedding(x=x, features=self.deep_features, squeeze_dim=True)

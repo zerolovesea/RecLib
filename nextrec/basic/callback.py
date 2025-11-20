@@ -8,6 +8,7 @@ Author:
 
 import copy
 
+
 class EarlyStopper(object):
     def __init__(self, patience: int = 20, mode: str = "max"):
         self.patience = patience

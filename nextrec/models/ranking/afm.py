@@ -23,24 +23,26 @@ class AFM(BaseModel):
     @property
     def task_type(self):
         return "binary"
-    
-    def __init__(self,
-                 dense_features: list[DenseFeature] | list = [],
-                 sparse_features: list[SparseFeature] | list = [],
-                 sequence_features: list[SequenceFeature] | list = [],
-                 attention_dim: int = 32,
-                 attention_dropout: float = 0.0,
-                 target: list[str] | list = [],
-                 optimizer: str = "adam",
-                 optimizer_params: dict = {},
-                 loss: str | nn.Module | None = "bce",
-                 device: str = 'cpu',
-                 model_id: str = "baseline",
-                 embedding_l1_reg=1e-6,
-                 dense_l1_reg=1e-5,
-                 embedding_l2_reg=1e-5,
-                 dense_l2_reg=1e-4):
-        
+
+    def __init__(
+        self,
+        dense_features: list[DenseFeature] | list = [],
+        sparse_features: list[SparseFeature] | list = [],
+        sequence_features: list[SequenceFeature] | list = [],
+        attention_dim: int = 32,
+        attention_dropout: float = 0.0,
+        target: list[str] | list = [],
+        optimizer: str = "adam",
+        optimizer_params: dict = {},
+        loss: str | nn.Module | None = "bce",
+        device: str = "cpu",
+        model_id: str = "baseline",
+        embedding_l1_reg=1e-6,
+        dense_l1_reg=1e-5,
+        embedding_l2_reg=1e-5,
+        dense_l2_reg=1e-4,
+    ):
+
         super(AFM, self).__init__(
             dense_features=dense_features,
             sparse_features=sparse_features,
@@ -53,21 +55,25 @@ class AFM(BaseModel):
             embedding_l2_reg=embedding_l2_reg,
             dense_l2_reg=dense_l2_reg,
             early_stop_patience=20,
-            model_id=model_id
+            model_id=model_id,
         )
 
         self.loss = loss
         if self.loss is None:
             self.loss = "bce"
-            
+
         self.fm_features = sparse_features + sequence_features
         if len(self.fm_features) < 2:
-            raise ValueError("AFM requires at least two sparse/sequence features to build pairwise interactions.")
+            raise ValueError(
+                "AFM requires at least two sparse/sequence features to build pairwise interactions."
+            )
 
         # Assume uniform embedding dimension across FM fields
         self.embedding_dim = self.fm_features[0].embedding_dim
         if any(f.embedding_dim != self.embedding_dim for f in self.fm_features):
-            raise ValueError("All FM features must share the same embedding_dim for AFM.")
+            raise ValueError(
+                "All FM features must share the same embedding_dim for AFM."
+            )
 
         self.embedding = EmbeddingLayer(features=self.fm_features)
 
@@ -82,18 +88,21 @@ class AFM(BaseModel):
 
         # Register regularization weights
         self._register_regularization_weights(
-            embedding_attr='embedding',
-            include_modules=['linear', 'attention_linear', 'attention_p', 'output_projection']
+            embedding_attr="embedding",
+            include_modules=[
+                "linear",
+                "attention_linear",
+                "attention_p",
+                "output_projection",
+            ],
         )
 
-        self.compile(
-            optimizer=optimizer,
-            optimizer_params=optimizer_params,
-            loss=loss
-        )
+        self.compile(optimizer=optimizer, optimizer_params=optimizer_params, loss=loss)
 
     def forward(self, x):
-        field_emb = self.embedding(x=x, features=self.fm_features, squeeze_dim=False)  # [B, F, D]
+        field_emb = self.embedding(
+            x=x, features=self.fm_features, squeeze_dim=False
+        )  # [B, F, D]
         input_linear = field_emb.flatten(start_dim=1)
         y_linear = self.linear(input_linear)
 

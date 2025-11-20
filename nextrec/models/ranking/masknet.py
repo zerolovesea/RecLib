@@ -23,26 +23,28 @@ class MaskNet(BaseModel):
     @property
     def task_type(self):
         return "binary"
-    
-    def __init__(self,
-                 dense_features: list[DenseFeature] | list = [],
-                 sparse_features: list[SparseFeature] | list = [],
-                 sequence_features: list[SequenceFeature] | list = [],
-                 num_blocks: int = 3,
-                 mask_hidden_dim: int = 64,
-                 block_dropout: float = 0.1,
-                 mlp_params: dict = {},
-                 target: list[str] | list = [],
-                 optimizer: str = "adam",
-                 optimizer_params: dict = {},
-                 loss: str | nn.Module | None = "bce",
-                 device: str = 'cpu',
-                 model_id: str = "baseline",
-                 embedding_l1_reg=1e-6,
-                 dense_l1_reg=1e-5,
-                 embedding_l2_reg=1e-5,
-                 dense_l2_reg=1e-4):
-        
+
+    def __init__(
+        self,
+        dense_features: list[DenseFeature] | list = [],
+        sparse_features: list[SparseFeature] | list = [],
+        sequence_features: list[SequenceFeature] | list = [],
+        num_blocks: int = 3,
+        mask_hidden_dim: int = 64,
+        block_dropout: float = 0.1,
+        mlp_params: dict = {},
+        target: list[str] | list = [],
+        optimizer: str = "adam",
+        optimizer_params: dict = {},
+        loss: str | nn.Module | None = "bce",
+        device: str = "cpu",
+        model_id: str = "baseline",
+        embedding_l1_reg=1e-6,
+        dense_l1_reg=1e-5,
+        embedding_l2_reg=1e-5,
+        dense_l2_reg=1e-4,
+    ):
+
         super(MaskNet, self).__init__(
             dense_features=dense_features,
             sparse_features=sparse_features,
@@ -55,13 +57,13 @@ class MaskNet(BaseModel):
             embedding_l2_reg=embedding_l2_reg,
             dense_l2_reg=dense_l2_reg,
             early_stop_patience=20,
-            model_id=model_id
+            model_id=model_id,
         )
 
         self.loss = loss
         if self.loss is None:
             self.loss = "bce"
-            
+
         self.mask_features = sparse_features + sequence_features
         if len(self.mask_features) == 0:
             raise ValueError("MaskNet requires at least one sparse/sequence feature.")
@@ -70,7 +72,9 @@ class MaskNet(BaseModel):
         self.num_fields = len(self.mask_features)
         self.embedding_dim = self.mask_features[0].embedding_dim
         if any(f.embedding_dim != self.embedding_dim for f in self.mask_features):
-            raise ValueError("MaskNet expects identical embedding_dim across mask_features.")
+            raise ValueError(
+                "MaskNet expects identical embedding_dim across mask_features."
+            )
 
         self.num_blocks = max(1, num_blocks)
         self.field_dim = self.num_fields * self.embedding_dim
@@ -82,7 +86,7 @@ class MaskNet(BaseModel):
                 nn.Sequential(
                     nn.Linear(self.field_dim, mask_hidden_dim),
                     nn.ReLU(),
-                    nn.Linear(mask_hidden_dim, self.num_fields)
+                    nn.Linear(mask_hidden_dim, self.num_fields),
                 )
             )
 
@@ -91,15 +95,11 @@ class MaskNet(BaseModel):
         self.prediction_layer = PredictionLayer(task_type=self.task_type)
 
         self._register_regularization_weights(
-            embedding_attr='embedding',
-            include_modules=['linear', 'mask_generators', 'final_mlp']
+            embedding_attr="embedding",
+            include_modules=["linear", "mask_generators", "final_mlp"],
         )
 
-        self.compile(
-            optimizer=optimizer,
-            optimizer_params=optimizer_params,
-            loss=loss
-        )
+        self.compile(optimizer=optimizer, optimizer_params=optimizer_params, loss=loss)
 
     def forward(self, x):
         field_emb = self.embedding(x=x, features=self.mask_features, squeeze_dim=False)

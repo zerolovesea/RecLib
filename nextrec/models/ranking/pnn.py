@@ -22,25 +22,27 @@ class PNN(BaseModel):
     @property
     def task_type(self):
         return "binary"
-    
-    def __init__(self,
-                 dense_features: list[DenseFeature] | list = [],
-                 sparse_features: list[SparseFeature] | list = [],
-                 sequence_features: list[SequenceFeature] | list = [],
-                 mlp_params: dict = {},
-                 product_type: str = "inner",
-                 outer_product_dim: int | None = None,
-                 target: list[str] | list = [],
-                 optimizer: str = "adam",
-                 optimizer_params: dict = {},
-                 loss: str | nn.Module | None = "bce",
-                 device: str = 'cpu',
-                 model_id: str = "baseline",
-                 embedding_l1_reg=1e-6,
-                 dense_l1_reg=1e-5,
-                 embedding_l2_reg=1e-5,
-                 dense_l2_reg=1e-4):
-        
+
+    def __init__(
+        self,
+        dense_features: list[DenseFeature] | list = [],
+        sparse_features: list[SparseFeature] | list = [],
+        sequence_features: list[SequenceFeature] | list = [],
+        mlp_params: dict = {},
+        product_type: str = "inner",
+        outer_product_dim: int | None = None,
+        target: list[str] | list = [],
+        optimizer: str = "adam",
+        optimizer_params: dict = {},
+        loss: str | nn.Module | None = "bce",
+        device: str = "cpu",
+        model_id: str = "baseline",
+        embedding_l1_reg=1e-6,
+        dense_l1_reg=1e-5,
+        embedding_l2_reg=1e-5,
+        dense_l2_reg=1e-4,
+    ):
+
         super(PNN, self).__init__(
             dense_features=dense_features,
             sparse_features=sparse_features,
@@ -53,13 +55,13 @@ class PNN(BaseModel):
             embedding_l2_reg=embedding_l2_reg,
             dense_l2_reg=dense_l2_reg,
             early_stop_patience=20,
-            model_id=model_id
+            model_id=model_id,
         )
 
         self.loss = loss
         if self.loss is None:
             self.loss = "bce"
-            
+
         self.field_features = sparse_features + sequence_features
         if len(self.field_features) < 2:
             raise ValueError("PNN requires at least two sparse/sequence features.")
@@ -68,7 +70,9 @@ class PNN(BaseModel):
         self.num_fields = len(self.field_features)
         self.embedding_dim = self.field_features[0].embedding_dim
         if any(f.embedding_dim != self.embedding_dim for f in self.field_features):
-            raise ValueError("All field features must share the same embedding_dim for PNN.")
+            raise ValueError(
+                "All field features must share the same embedding_dim for PNN."
+            )
 
         self.product_type = product_type.lower()
         if self.product_type not in {"inner", "outer"}:
@@ -87,19 +91,14 @@ class PNN(BaseModel):
         self.mlp = MLP(input_dim=linear_dim + product_dim, **mlp_params)
         self.prediction_layer = PredictionLayer(task_type=self.task_type)
 
-        modules = ['mlp']
+        modules = ["mlp"]
         if self.product_type == "outer":
-            modules.append('kernel')
+            modules.append("kernel")
         self._register_regularization_weights(
-            embedding_attr='embedding',
-            include_modules=modules
+            embedding_attr="embedding", include_modules=modules
         )
 
-        self.compile(
-            optimizer=optimizer,
-            optimizer_params=optimizer_params,
-            loss=loss
-        )
+        self.compile(optimizer=optimizer, optimizer_params=optimizer_params, loss=loss)
 
     def forward(self, x):
         field_emb = self.embedding(x=x, features=self.field_features, squeeze_dim=False)

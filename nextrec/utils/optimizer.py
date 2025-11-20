@@ -13,11 +13,11 @@ from typing import Iterable
 def get_optimizer_fn(
     optimizer: str = "adam",
     params: Iterable[torch.nn.Parameter] | None = None,
-    **optimizer_params
+    **optimizer_params,
 ):
     """
     Get optimizer function based on optimizer name or instance.
-        
+
     Examples:
         >>> optimizer = get_optimizer_fn("adam", model.parameters(), lr=1e-3)
         >>> optimizer = get_optimizer_fn("sgd", model.parameters(), lr=0.01, momentum=0.9)
@@ -25,9 +25,9 @@ def get_optimizer_fn(
     if params is None:
         raise ValueError("params cannot be None. Please provide model parameters.")
 
-    if 'lr' not in optimizer_params:
-        optimizer_params['lr'] = 1e-3
-    
+    if "lr" not in optimizer_params:
+        optimizer_params["lr"] = 1e-3
+
     if isinstance(optimizer, str):
         opt_name = optimizer.lower()
         if opt_name == "adam":
@@ -48,28 +48,32 @@ def get_optimizer_fn(
         optimizer_fn = optimizer
     else:
         raise TypeError(f"Invalid optimizer type: {type(optimizer)}")
-    
+
     return optimizer_fn
 
 
 def get_scheduler_fn(scheduler, optimizer, **scheduler_params):
     """
     Get learning rate scheduler function.
-    
+
     Examples:
         >>> scheduler = get_scheduler_fn("step", optimizer, step_size=10, gamma=0.1)
         >>> scheduler = get_scheduler_fn("cosine", optimizer, T_max=100)
     """
     if isinstance(scheduler, str):
         if scheduler == "step":
-            scheduler_fn = torch.optim.lr_scheduler.StepLR(optimizer, **scheduler_params)
+            scheduler_fn = torch.optim.lr_scheduler.StepLR(
+                optimizer, **scheduler_params
+            )
         elif scheduler == "cosine":
-            scheduler_fn = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, **scheduler_params)
+            scheduler_fn = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer, **scheduler_params
+            )
         else:
             raise NotImplementedError(f"Unsupported scheduler: {scheduler}")
     elif isinstance(scheduler, torch.optim.lr_scheduler._LRScheduler):
         scheduler_fn = scheduler
     else:
         raise TypeError(f"Invalid scheduler type: {type(scheduler)}")
-    
+
     return scheduler_fn
