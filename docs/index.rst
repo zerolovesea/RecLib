@@ -145,8 +145,20 @@ Tutorials and scripts
 - Ready-to-run examples live in ``tutorials/`` (e.g., ``movielen_ranking_deepfm.py``, ``example_multitask.py``).
 - Datasets used in samples live in ``dataset/``. Check ``README.md`` and ``README_zh.md`` for dataset prep and more examples.
 
+
+
+
+Contents
+--------
+
+.. toctree::
+    :maxdepth: 2
+    :caption: Contents
+
+    modules
+
 API reference stub
 ------------------
 
 .. automodule:: nextrec
-   :members:
+    :members:
