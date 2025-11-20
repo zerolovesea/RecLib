@@ -35,6 +35,6 @@ jobs:
           TWINE_USERNAME: ${{ secrets.TEST_PYPI_USERNAME }} # PYPI_USERNAME
           TWINE_PASSWORD: ${{ secrets.TEST_PYPI_PASSWORD }} # PYPI_PASSWORD  # twine upload dist/*
         run: |
-          twine upload --repository-url https://test.pypi.org/legacy/ dist/* 
+          twine upload --verbose --repository-url https://test.pypi.org/legacy/ dist/* 
           
           
