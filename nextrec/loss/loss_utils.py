@@ -5,52 +5,42 @@ Date: create on 09/11/2025
 Author:
     Yang Zhou,zyaztec@gmail.com
 """
-
 import torch
 import torch.nn as nn
 from typing import Literal
 
 from nextrec.loss.match_losses import (
-    BPRLoss,
-    HingeLoss,
-    TripletLoss,
+    BPRLoss, 
+    HingeLoss, 
+    TripletLoss, 
     SampledSoftmaxLoss,
-    CosineContrastiveLoss,
-    InfoNCELoss,
+    CosineContrastiveLoss, 
+    InfoNCELoss
 )
 
 # Valid task types for validation
-VALID_TASK_TYPES = [
-    "binary",
-    "multiclass",
-    "regression",
-    "multivariate_regression",
-    "match",
-    "ranking",
-    "multitask",
-    "multilabel",
-]
+VALID_TASK_TYPES = ['binary', 'multiclass', 'regression', 'multivariate_regression', 'match', 'ranking', 'multitask', 'multilabel']
 
 
 def get_loss_fn(
     task_type: str = "binary",
     training_mode: str | None = None,
     loss: str | nn.Module | None = None,
-    **loss_kwargs,
+    **loss_kwargs
 ) -> nn.Module:
     """
     Get loss function based on task type and training mode.
-
+    
     Examples:
         # Ranking task (binary classification)
         >>> loss_fn = get_loss_fn(task_type="binary", loss="bce")
-
+        
         # Match task with pointwise training
         >>> loss_fn = get_loss_fn(task_type="match", training_mode="pointwise")
-
+        
         # Match task with pairwise training
         >>> loss_fn = get_loss_fn(task_type="match", training_mode="pairwise", loss="bpr")
-
+        
         # Match task with listwise training
         >>> loss_fn = get_loss_fn(task_type="match", training_mode="listwise", loss="sampled_softmax")
     """
@@ -67,7 +57,7 @@ def get_loss_fn(
                 return CosineContrastiveLoss(**loss_kwargs)
             elif isinstance(loss, str):
                 raise ValueError(f"Unsupported pointwise loss: {loss}")
-
+        
         elif training_mode == "pairwise":
             if loss is None or loss == "bpr":
                 return BPRLoss(**loss_kwargs)
@@ -77,7 +67,7 @@ def get_loss_fn(
                 return TripletLoss(**loss_kwargs)
             elif isinstance(loss, str):
                 raise ValueError(f"Unsupported pairwise loss: {loss}")
-
+        
         elif training_mode == "listwise":
             if loss is None or loss == "sampled_softmax" or loss == "softmax":
                 return SampledSoftmaxLoss(**loss_kwargs)
@@ -87,7 +77,7 @@ def get_loss_fn(
                 return nn.CrossEntropyLoss(**loss_kwargs)
             elif isinstance(loss, str):
                 raise ValueError(f"Unsupported listwise loss: {loss}")
-
+        
         else:
             raise ValueError(f"Unknown training_mode: {training_mode}")
 
@@ -108,7 +98,7 @@ def get_loss_fn(
             return nn.CrossEntropyLoss(**loss_kwargs)
         elif isinstance(loss, str):
             raise ValueError(f"Unsupported multiclass loss: {loss}")
-
+    
     elif task_type == "regression":
         if loss is None or loss == "mse":
             return nn.MSELoss(**loss_kwargs)
@@ -116,24 +106,26 @@ def get_loss_fn(
             return nn.L1Loss(**loss_kwargs)
         elif isinstance(loss, str):
             raise ValueError(f"Unsupported regression loss: {loss}")
-
+    
     else:
         raise ValueError(f"Unsupported task_type: {task_type}")
-
+    
     return loss
 
 
 def validate_training_mode(
-    training_mode: str, support_training_modes: list[str], model_name: str = "Model"
+    training_mode: str,
+    support_training_modes: list[str],
+    model_name: str = "Model"
 ) -> None:
     """
     Validate that the requested training mode is supported by the model.
-
+    
     Args:
         training_mode: Requested training mode
         support_training_modes: List of supported training modes
         model_name: Name of the model (for error messages)
-
+    
     Raises:
         ValueError: If training mode is not supported
     """

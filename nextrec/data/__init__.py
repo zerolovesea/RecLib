@@ -19,9 +19,9 @@ from nextrec.data.data_utils import (
 from nextrec.data import data_utils
 
 __all__ = [
-    "collate_fn",
-    "get_column_data",
-    "split_dict_random",
-    "build_eval_candidates",
-    "data_utils",
+    'collate_fn',
+    'get_column_data',
+    'split_dict_random',
+    'build_eval_candidates',
+    'data_utils',
 ]

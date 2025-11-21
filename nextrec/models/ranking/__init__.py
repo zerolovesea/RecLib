@@ -7,11 +7,11 @@ from .din import DIN
 from .dien import DIEN
 
 __all__ = [
-    "DeepFM",
-    "AutoInt",
-    "WideDeep",
-    "xDeepFM",
-    "DCN",
-    "DIN",
-    "DIEN",
+    'DeepFM',
+    'AutoInt', 
+    'WideDeep',
+    'xDeepFM',
+    'DCN',
+    'DIN',
+    'DIEN',
 ]

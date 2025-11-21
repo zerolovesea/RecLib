@@ -5,9 +5,9 @@ from .mind import MIND
 from .sdm import SDM
 
 __all__ = [
-    "DSSM",
-    "DSSM_v2",
-    "YoutubeDNN",
-    "MIND",
-    "SDM",
+    'DSSM',
+    'DSSM_v2',
+    'YoutubeDNN',
+    'MIND',
+    'SDM',
 ]

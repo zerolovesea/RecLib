@@ -2,12 +2,10 @@
 DIN (Deep Interest Network) Ranking Model Example with GAUC metric
 Uses ranking_task.csv generated data
 """
-
 import sys
 import pandas as pd
 
 from pathlib import Path
-
 sys.path.append(str(Path(__file__).parent.parent))
 
 from nextrec.models.ranking.din import DIN
@@ -16,11 +14,11 @@ from nextrec.basic.features import DenseFeature, SparseFeature, SequenceFeature
 from sklearn.model_selection import train_test_split
 
 # Load generated data
-df = pd.read_csv("dataset/ranking_task.csv")
+df = pd.read_csv('dataset/ranking_task.csv')
 
 # Parse sequence features from string to list
 for col in df.columns:
-    if "sequence" in col:
+    if 'sequence' in col:
         df[col] = df[col].apply(lambda x: eval(x) if isinstance(x, str) else x)
 
 print(f"Dataset loaded: {len(df)} samples")
@@ -42,39 +40,42 @@ print(f"  actual length: {len([x for x in df['sequence_1'].iloc[0] if x != 0])}"
 train_df, valid_df = train_test_split(df, test_size=0.2, random_state=2024)
 
 # Dense features
-dense_features = [DenseFeature(f"dense_{i}") for i in range(8)]
+dense_features = [
+    DenseFeature(f'dense_{i}')
+    for i in range(8)
+]
 
 # Sparse features (including user_id and item_id)
 sparse_features = [
-    SparseFeature("user_id", vocab_size=int(df["user_id"].max() + 1), embedding_dim=32),
-    SparseFeature("item_id", vocab_size=int(df["item_id"].max() + 1), embedding_dim=32),
+    SparseFeature('user_id', vocab_size=int(df['user_id'].max() + 1), embedding_dim=32),
+    SparseFeature('item_id', vocab_size=int(df['item_id'].max() + 1), embedding_dim=32),
 ]
 
 # Add other sparse features
-sparse_features.extend(
-    [
-        SparseFeature(
-            f"sparse_{i}", vocab_size=int(df[f"sparse_{i}"].max() + 1), embedding_dim=32
-        )
-        for i in range(10)
-    ]
-)
+sparse_features.extend([
+    SparseFeature(
+        f'sparse_{i}',
+        vocab_size=int(df[f'sparse_{i}'].max() + 1),
+        embedding_dim=32
+    )
+    for i in range(10)
+])
 
 # Sequence features
 sequence_features = [
     SequenceFeature(
-        "sequence_0",
-        vocab_size=int(df["sequence_0"].apply(lambda x: max(x)).max() + 1),
+        'sequence_0',
+        vocab_size=int(df['sequence_0'].apply(lambda x: max(x)).max() + 1),
         embedding_dim=32,
         padding_idx=0,
-        embedding_name="item_emb",
+        embedding_name='item_emb'
     ),
     SequenceFeature(
-        "sequence_1",
-        vocab_size=int(df["sequence_1"].apply(lambda x: max(x)).max() + 1),
+        'sequence_1',
+        vocab_size=int(df['sequence_1'].apply(lambda x: max(x)).max() + 1),
         embedding_dim=16,
-        padding_idx=0,
-    ),
+        padding_idx=0
+    )
 ]
 
 print(f"\nDense features: {len(dense_features)}")
@@ -93,13 +94,13 @@ model = DIN(
     sequence_features=sequence_features,
     mlp_params=mlp_params,
     attention_hidden_units=[80, 40],
-    attention_activation="sigmoid",
+    attention_activation='sigmoid',
     attention_use_softmax=True,
-    target=["label"],
+    target=['label'],
     optimizer="adam",
     optimizer_params={"lr": 1e-3, "weight_decay": 1e-5},
     loss="bce",
-    device="mps",
+    device='mps',
     model_id="din_exp001",
     embedding_l1_reg=1e-6,
     embedding_l2_reg=1e-5,
@@ -121,12 +122,12 @@ print(f"Valid size: {len(valid_df)}")
 model.fit(
     train_data=train_df,
     valid_data=valid_df,
-    metrics=["auc", "gauc", "logloss"],  # Added GAUC metric
+    metrics=['auc', 'gauc', 'logloss'],  # Added GAUC metric
     epochs=8,
     batch_size=512,
     shuffle=True,
     verbose=1,
-    user_id_column="user_id",  # Specify user_id column for GAUC
+    user_id_column='user_id'  # Specify user_id column for GAUC
 )
 
 print("\n" + "=" * 60)
@@ -147,9 +148,9 @@ print(f"Prediction range: [{predictions.min():.4f}, {predictions.max():.4f}]")
 from sklearn.metrics import roc_auc_score, log_loss
 from nextrec.basic.metrics import compute_gauc
 
-auc = roc_auc_score(valid_df["label"].values, predictions)
-gauc = compute_gauc(valid_df["label"].values, predictions, valid_df["user_id"].values)
-logloss = log_loss(valid_df["label"].values, predictions)
+auc = roc_auc_score(valid_df['label'].values, predictions)
+gauc = compute_gauc(valid_df['label'].values, predictions, valid_df['user_id'].values)
+logloss = log_loss(valid_df['label'].values, predictions)
 
 print(f"\nValid AUC: {auc:.6f}")
 print(f"Valid GAUC: {gauc:.6f}")

@@ -18,18 +18,18 @@ from nextrec.loss.loss_utils import (
 
 __all__ = [
     # Match losses
-    "BPRLoss",
-    "HingeLoss",
-    "TripletLoss",
-    "SampledSoftmaxLoss",
-    "CosineContrastiveLoss",
-    "InfoNCELoss",
+    'BPRLoss',
+    'HingeLoss',
+    'TripletLoss',
+    'SampledSoftmaxLoss',
+    'CosineContrastiveLoss',
+    'InfoNCELoss',
     # Listwise losses
-    "ListNetLoss",
-    "ListMLELoss",
-    "ApproxNDCGLoss",
+    'ListNetLoss',
+    'ListMLELoss',
+    'ApproxNDCGLoss',
     # Utilities
-    "get_loss_fn",
-    "validate_training_mode",
-    "VALID_TASK_TYPES",
+    'get_loss_fn',
+    'validate_training_mode',
+    'VALID_TASK_TYPES',
 ]
