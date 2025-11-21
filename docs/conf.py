@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.abspath('../nextrec'))
 project = "NextRec"
 copyright = "2025, Yang Zhou"
 author = "Yang Zhou"
-release = "0.1.7"
+release = "0.1.11"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -33,3 +33,10 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+
+autodoc_default_options = {
+    "members": True,
+    "undoc-members": True,
+    "special-members": "__init__, __iter__",
+    "private-members": True,
+}

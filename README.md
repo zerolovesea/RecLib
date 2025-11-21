@@ -5,9 +5,9 @@
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
 ![PyTorch](https://img.shields.io/badge/PyTorch-1.10+-ee4c2c.svg)
 ![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)
-![Version](https://img.shields.io/badge/Version-0.1.0-orange.svg)
+![Version](https://img.shields.io/badge/Version-0.1.11-orange.svg)
 
-[中文版](README_zh.md)
+English | [中文版](README_zh.md)
 
 **A Unified, Efficient, and Scalable Recommendation System Framework**
 
@@ -213,7 +213,6 @@ NextRec is inspired by the following great open-source projects:
 - **torch-rechub** - A Lighting Pytorch Framework for Recommendation Models, Easy-to-use and Easy-to-extend.
 - **FuxiCTR** — Configurable and reproducible CTR prediction library  
 - **RecBole** — Unified and efficient recommendation library  
-- **PaddleRec** — Large-scale recommendation algorithm library  
 
 Special thanks to all open-source contributors!
 

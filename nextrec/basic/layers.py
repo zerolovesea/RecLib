@@ -2,8 +2,7 @@
 Layer implementations used across NextRec models.
 
 Date: create on 27/10/2025, update on 19/11/2025
-Author:
-    Yang Zhou,zyaztec@gmail.com
+Author: Yang Zhou,zyaztec@gmail.com
 """
 
 from __future__ import annotations

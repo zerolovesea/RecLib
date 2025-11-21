@@ -117,6 +117,7 @@ dmypy.json
 local_deepfm.py
 local_mmoe.py
 online_test.py
+linux_train_tutorial.py
 
 # DataProcessor saved files
 processor/

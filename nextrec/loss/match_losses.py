@@ -2,8 +2,7 @@
 Loss functions for matching tasks
 
 Date: create on 13/11/2025
-Author:
-    Yang Zhou,zyaztec@gmail.com
+Author: Yang Zhou,zyaztec@gmail.com
 """
 
 import torch
@@ -222,9 +221,9 @@ class ListMLELoss(nn.Module):
 
 class ApproxNDCGLoss(nn.Module):
     """
-    Approximate NDCG loss for learning to rank
-    Reference: Qin et al. A General Approximation Framework for Direct Optimization of 
-               Information Retrieval Measures (Information Retrieval 2010)
+    Approximate NDCG loss for learning to rank.
+    Reference: Qin et al. "A General Approximation Framework for Direct Optimization of
+    Information Retrieval Measures" (Information Retrieval 2010).
     """
     def __init__(self, temperature: float = 1.0, reduction: str = 'mean'):
         super(ApproxNDCGLoss, self).__init__()

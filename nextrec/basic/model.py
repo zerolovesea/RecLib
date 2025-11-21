@@ -2,8 +2,7 @@
 Base Model & Base Match Model Class
 
 Date: create on 27/10/2025
-Author:
-    Yang Zhou,zyaztec@gmail.com
+Author: Yang Zhou,zyaztec@gmail.com
 """
 
 import os
@@ -50,6 +49,7 @@ class BaseModel(nn.Module):
                  embedding_l2_reg: float = 0.0, 
                  dense_l2_reg: float = 0.0,
                  early_stop_patience: int = 20, 
+                 model_path: str = './',
                  model_id: str = 'baseline'): 
         
         super(BaseModel, self).__init__()
@@ -85,12 +85,12 @@ class BaseModel(nn.Module):
         self.early_stop_patience = early_stop_patience
         self._max_gradient_norm = 1.0   # Maximum gradient norm for gradient clipping
 
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.model_id = model_id
-        
-        checkpoint_dir = os.path.abspath(os.path.join(project_root, "..", "checkpoints"))
+
+        model_path = os.path.abspath(os.getcwd() if model_path in [None, './'] else model_path)
+        checkpoint_dir = os.path.join(model_path, "checkpoints", self.model_id)
         os.makedirs(checkpoint_dir, exist_ok=True)
-        self.checkpoint = os.path.join(checkpoint_dir, f"{self.model_name}_{self.model_id}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.model")
+        self.checkpoint = os.path.join(checkpoint_dir, f"{self.model_name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.model")
         self.best = os.path.join(checkpoint_dir, f"{self.model_name}_{self.model_id}_best.model")
 
         self._logger_initialized = False

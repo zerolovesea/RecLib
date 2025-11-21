@@ -2,8 +2,7 @@
 Activation function definitions
 
 Date: create on 27/10/2025
-Author:
-    Yang Zhou,zyaztec@gmail.com
+Author: Yang Zhou,zyaztec@gmail.com
 """
 
 import torch

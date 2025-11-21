@@ -4,8 +4,7 @@ Data utilities package for NextRec
 This package provides data processing and manipulation utilities.
 
 Date: create on 13/11/2025
-Author:
-    Yang Zhou, zyaztec@gmail.com
+Author: Yang Zhou, zyaztec@gmail.com
 """
 
 from nextrec.data.data_utils import (

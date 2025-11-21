@@ -169,3 +169,4 @@ API reference stub
 
 .. automodule:: nextrec
     :members:
+    :noindex:

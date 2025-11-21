@@ -2,8 +2,7 @@
 Metrics computation and configuration for model evaluation.
 
 Date: create on 27/10/2025
-Author:
-    Yang Zhou,zyaztec@gmail.com
+Author: Yang Zhou,zyaztec@gmail.com
 """
 import logging
 import numpy as np

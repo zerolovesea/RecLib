@@ -2,8 +2,7 @@
 Loss utilities for NextRec
 
 Date: create on 09/11/2025
-Author:
-    Yang Zhou,zyaztec@gmail.com
+Author: Yang Zhou,zyaztec@gmail.com
 """
 import torch
 import torch.nn as nn

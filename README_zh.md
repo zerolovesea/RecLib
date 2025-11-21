@@ -5,9 +5,9 @@
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
 ![PyTorch](https://img.shields.io/badge/PyTorch-1.10+-ee4c2c.svg)
 ![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)
-![Version](https://img.shields.io/badge/Version-0.1.0-orange.svg)
+![Version](https://img.shields.io/badge/Version-0.1.11-orange.svg)
 
-[English Version](README.md)
+[English Version](README.md) | 中文版
 
 **统一、高效、可扩展的推荐系统框架**
 
@@ -210,7 +210,6 @@ NextRec 的开发受到以下优秀项目的启发：
 - [torch-rechub](https://github.com/datawhalechina/torch-rechub) - 灵活且易于扩展的推荐系统框架
 - [FuxiCTR](https://github.com/reczoo/FuxiCTR) - 可配置、可调优、可复现的 CTR 预测库
 - [RecBole](https://github.com/RUCAIBox/RecBole) - 统一、全面、高效的推荐库
-- [PaddleRec](https://github.com/PaddlePaddle/PaddleRec) - 大规模推荐算法库
 
 感谢开源社区的所有贡献者！
 

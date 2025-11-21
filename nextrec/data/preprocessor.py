@@ -2,8 +2,7 @@
 DataProcessor for data preprocessing including numeric, sparse, sequence features and target processing.
 
 Date: create on 13/11/2025
-Author:
-    Yang Zhou, zyaztec@gmail.com
+Author: Yang Zhou, zyaztec@gmail.com
 """
 
 import os

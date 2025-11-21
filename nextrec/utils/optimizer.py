@@ -2,8 +2,7 @@
 Optimizer and Scheduler utilities for NextRec
 
 Date: create on 13/11/2025
-Author:
-    Yang Zhou, zyaztec@gmail.com
+Author: Yang Zhou, zyaztec@gmail.com
 """
 
 import torch

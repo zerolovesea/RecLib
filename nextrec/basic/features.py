@@ -2,8 +2,7 @@
 Feature definitions
 
 Date: create on 27/10/2025
-Author:
-    Yang Zhou,zyaztec@gmail.com
+Author: Yang Zhou,zyaztec@gmail.com
 """
 
 from typing import Optional

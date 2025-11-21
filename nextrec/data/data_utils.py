@@ -1,30 +1,11 @@
-"""
-Data processing utilities for NextRec
-
-Date: create on 13/11/2025
-Author:
-    Yang Zhou, zyaztec@gmail.com
-"""
+"""Data processing utilities for NextRec."""
 
 import torch
 import numpy as np
 import pandas as pd
 
 def collate_fn(batch):
-    """
-    Custom collate function for batching tuples of tensors.
-    Each element in batch is a tuple of tensors from FileDataset.
-
-    Examples:
-        # Single sample in batch
-        (tensor([1.0, 2.0]), tensor([10, 20]), tensor([100, 200]), tensor(1.0))
-        # Batched output
-        (tensor([[1.0, 2.0], [3.0, 4.0]]),  # dense_features batch
-         tensor([[10, 20], [30, 40]]),       # sparse_features batch
-         tensor([[100, 200], [300, 400]]),   # sequence_features batch
-         tensor([1.0, 0.0])                  # labels batch)
-
-    """
+    """Collate a list of tensor tuples from ``FileDataset`` into batched tensors."""
     if not batch:
         return tuple()
 
