@@ -15,6 +15,6 @@ matplotlib>=3.7.0
 seaborn>=0.12.0
 tqdm>=4.65.0
 
-pyarrow>=12.0.0  
+pyarrow>=12.0.0,<15.0.0
 fastparquet>=2023.4.0 
 
